@@ -288,7 +288,7 @@ bool imageify( const string & filename, char name[8+1], char extension[3+1])
 	}
 	else
 	{
-		if ( filename.size() < 8)
+		if ( filename.size() > 8)
 		{
 			sprintf( name, "%-8s", filename.substr( 0,8).c_str());
 			if ( filename.size() <= (8+3))
@@ -662,6 +662,7 @@ bool execute_mkdir( const CLUSTER directory_cluster, const string & image_direct
 			{
 				FATDisk::object_info_t	entry;
 				memset( &entry, 0, sizeof(entry));
+				entry.directory = subdirectory_cluster;
 				strcpy( entry.name, ".       ");
 				strcpy( entry.extension, "   ");
 				entry.attributes.directory = true;
@@ -732,7 +733,7 @@ cout << "recursive write: " << host_directory << "," << name << endl;
 						memset( &object_info, 0, sizeof( object_info));
 						object_info.directory = cluster;						
 						bool found;						
-						ret = imageify( name, object_info.name, object_info.extension) && 
+						ret = imageify( entry->d_name, object_info.name, object_info.extension) && 
 								find_directory_entry( object_info, found);
 						if ( ret)
 						{
