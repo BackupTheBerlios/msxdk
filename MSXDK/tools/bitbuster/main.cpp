@@ -31,7 +31,7 @@ unsigned char *data;	//data to crunch
 int length;				//length of data to crunch
 
 
-const int buffer_length = 16;	//16384;
+const int buffer_length = 16*1;	//16384;
 
 unsigned char outbuffer[ buffer_length ];
 int buffer_position;
