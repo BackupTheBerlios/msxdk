@@ -6,7 +6,7 @@ else
 endif
 
 TARGETS	 = dodsk$(EXTENSION)
-OBJECTS  = main.o FATDisk.o
+OBJECTS  = main.o FATDisk.o OptionParser.o
 
 INCDIR   = ../include
 BINDIR   = ../../bin
