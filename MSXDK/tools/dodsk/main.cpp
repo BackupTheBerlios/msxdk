@@ -30,6 +30,7 @@ using std::endl;
 using std::ios;
 #include <sys/stat.h>
 #include <unistd.h>
+#include <dirent.h>
 #include <set>
 using std::set;
 #include <vector>
@@ -56,6 +57,7 @@ enum {
 	COMMAND_NONE,
 	COMMAND_READ,
 	COMMAND_WRITE,
+	COMMAND_MKDIR,
 	COMMAND_DELETE
 };
 
@@ -75,72 +77,98 @@ static int				g_bootblock			= FATDisk::BOOTBLOCK_MSX1;
 static int				g_command			= COMMAND_NONE;
 static string			g_dsk_filename		= "";
 static string			g_image_directory	= "";
-static string			g_local_directory	= ".";
+static string			g_host_directory	= "";
+static FATDisk			g_fatdisk;
 
-bool check_local_directory( void)
+bool check_host_directory( void)
 {
 	bool	ret = true;
 	
-	struct stat	file_stat;
-	if ( stat( g_local_directory.c_str(), &file_stat) == 0)
+	if ( strlen( g_host_directory.c_str()) > 0)
 	{
-		// At least the "object" exists, now see if it's a directory.
-		if ( !S_ISDIR( file_stat.st_mode))
+		struct stat	file_stat;
+		if ( stat( g_host_directory.c_str(), &file_stat) == 0)
 		{
-			cerr << g_local_directory << " found, but it's not a directory" << endl;
+			// At least the "object" exists, now see if it's a directory.
+			if ( !S_ISDIR( file_stat.st_mode))
+			{
+				cerr << g_host_directory << " found, but it's not a directory" << endl;
+				ret = false;
+			}
+		}
+		else
+		{
+			report_stat_error( g_host_directory);
 			ret = false;
 		}
 	}
-	else
+	return ret;
+}
+
+bool execute_read( const char * filename)
+{
+	bool	ret = true;
+	
+	/*
+	//xxx
+	int entries;
+	if ( fatdisk.get_directory_entries( ROOT_DIRECTORY_CLUSTER, entries))
 	{
-		report_stat_error( g_local_directory);
-		ret = false;
+		cout << "Root directory contains " << entries << " entries" << endl;
+		FATDisk::object_info_t	object_info;
+		for ( int index = 0 ; index < entries; ++index)
+		{
+			if ( fatdisk.get_directory_entry( ROOT_DIRECTORY_CLUSTER, index, object_info))
+			{
+				if ( object_info.name[0] != '\0')
+				{
+					cout << object_info.name << "." << object_info.extension << endl;
+					ofstream	output;
+					char fname[12];
+					sprintf( fname, "%s.%s", object_info.name, object_info.extension);
+					output.open( fname, ios::out|ios::binary);
+					if ( !output.fail())
+					{
+						fatdisk.read_object( object_info.first_cluster, object_info.size, output);
+						output.close();
+					}
+				}
+			}
+		}
 	}
+	*/
+	//xxx
 	return ret;
 }
 
 bool dodsk_read( int argc, char ** argv)
 {
 	bool    ret = true;
-	FATDisk fatdisk;
 
-	ret = fatdisk.open( g_dsk_filename, g_dsk_exist ? FATDisk::OPEN_MUSTEXIST : FATDisk::OPEN_READONLY, g_format, g_bootblock);
+	ret = g_fatdisk.open( g_dsk_filename, g_dsk_exist ? FATDisk::OPEN_MUSTEXIST : FATDisk::OPEN_READONLY, g_format, g_bootblock);
 	if (ret)
 	{
-		ret = check_local_directory();
+		//xxx
+		ret = check_host_directory();
 		if ( ret)
 		{
-			//ret = lookup_image_directory( image_directory_cluster);
-			/*
-			//xxx
-			int entries;
-			if ( fatdisk.get_directory_entries( ROOT_DIRECTORY_CLUSTER, entries))
+	//ret = lookup_image_directory( image_directory_cluster);
+			if ( argc == 0)
 			{
-				cout << "Root directory contains " << entries << " entries" << endl;
-				FATDisk::object_info_t	object_info;
-				for ( int index = 0 ; index < entries; ++index)
+				ret = execute_read( "*");
+			}
+			else
+			{
+				for ( int arg_index = 0 ; arg_index < argc ; ++arg_index)
 				{
-					if ( fatdisk.get_directory_entry( ROOT_DIRECTORY_CLUSTER, index, object_info))
+					if ( !execute_read( argv[ arg_index]))
 					{
-						if ( object_info.name[0] != '\0')
-						{
-							cout << object_info.name << "." << object_info.extension << endl;
-							ofstream	output;
-							char fname[12];
-							sprintf( fname, "%s.%s", object_info.name, object_info.extension);
-							output.open( fname, ios::out|ios::binary);
-							if ( !output.fail())
-							{
-								fatdisk.read_object( object_info.first_cluster, object_info.size, output);
-								output.close();
-							}
-						}
+						ret = false;
 					}
 				}
 			}
-			*/
 		}
-		fatdisk.close();
+		g_fatdisk.close();
 	}
 
 	return ret;
@@ -239,6 +267,19 @@ bool dodsk_write( int argc, char ** argv)
 	return ret;
 }
 
+bool dodsk_mkdir( int argc, char ** argv)
+{
+	bool    ret = true;
+
+	//xxx open .dsk file
+
+	if (ret)
+	{
+	}
+
+	return ret;
+}
+
 bool dodsk_delete( int argc, char ** argv)
 {
 	bool    ret = true;
@@ -254,13 +295,10 @@ bool dodsk_delete( int argc, char ** argv)
 
 void print_syntax( ostream & stream = cerr)
 {
-	//xxx make options freely placeable
-	//format without options:
-	//dodsk <dsk filename> <command> [<filename>...]
 	stream << "Writes a file to or reads a file from a .DSK file" << endl;
 	stream << endl;
-	stream << g_program_name << " [-hoke] [-f NNN] [-i <directory>] [-d <directory>]" << endl;
-	stream << "     r[ead]|w[rite]|d[elete]" << endl;
+	stream << g_program_name << " r[ead]|w[rite]|m[kdir]|d[elete]" << endl;
+	stream << "     [-hoke] [-f NNN] [-i <directory>] [-d <directory>]" << endl;
 	stream << "     [<dsk filename> <filename> [<filename>...]]" << endl;
 	stream << endl;
 	stream << "  -h             Print this information" << endl;
@@ -274,6 +312,9 @@ void print_syntax( ostream & stream = cerr)
 	stream << "                 360 = 360K, single sided, double density" << endl;
 	stream << "                 720 = 720K, double sided, double density" << endl;
 	stream << endl;
+	stream << "Note: options may be given anywhere in the command line, even before the" << endl;
+	stream << "action or in between filenames." << endl;
+	stream << endl;
 }
 
 bool process_options( int argc, char ** argv, int & arg_index)
@@ -283,7 +324,7 @@ bool process_options( int argc, char ** argv, int & arg_index)
 	OptionParser	parser( argc, argv);
 	int		option;
 	
-	while ( (option = parser.GetOption( "hokef:i:l:")) != -1)
+	while ( (option = parser.GetOption( "hokef:i:d:")) != -1)
 	{
 		switch (option)
 		{
@@ -327,8 +368,8 @@ bool process_options( int argc, char ** argv, int & arg_index)
 		case 'i':
 			g_image_directory = parser.Argument();
 			break;
-		case 'l':
-			g_local_directory = parser.Argument();
+		case 'd':
+			g_host_directory = parser.Argument();
 			break;
 		default:
 			ret = false;
@@ -343,12 +384,6 @@ bool process_arguments( int argc, char ** argv, int & arg_index)
 {
 	bool	ret = true;
 	
-	for ( int argi = arg_index ; argi < argc; ++argi)
-	{
-		fprintf( stdout, "argv[%d]=%s\n", argi, argv[argi]);
-	}
-	
-	
 	if ( arg_index < argc)
 	{
 		//
@@ -361,6 +396,9 @@ bool process_arguments( int argc, char ** argv, int & arg_index)
 			break;
 		case 'w':
 			g_command = COMMAND_WRITE;
+			break;
+		case 'm':
+			g_command = COMMAND_MKDIR;
 			break;
 		case 'd':
 			g_command = COMMAND_DELETE;
@@ -442,6 +480,9 @@ int main( int argc, char ** argv)
 			break;
 		case COMMAND_WRITE:
 			ret = dodsk_write( argc - arg_index, &argv[ arg_index]);
+			break;
+		case COMMAND_MKDIR:
+			ret = dodsk_mkdir( argc - arg_index, &argv[ arg_index]);
 			break;
 		case COMMAND_DELETE:
 			ret = dodsk_delete( argc - arg_index, &argv[ arg_index]);
