@@ -1,5 +1,5 @@
 #SUBDIRS = 3pp common appack arcreate
-SUBDIRS = common arcreate dodsk bitbuster mslconv
+SUBDIRS = common arcreate dodsk bitbuster mslconv mwmconv
 
 all clean install::
 	@if [ ! -d include ]; then \
