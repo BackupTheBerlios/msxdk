@@ -294,18 +294,25 @@ int position = 0;
 int offset;
 int ext_index = name.rfind( "." );	// find rightmost . in name
 string output_name;
+ifstream infile;
+int output_length;
 	
 	// if no extension found
 	if ( ext_index < 0 )
 		output_name = name + "." + extension;	// add extension
 	else
 		output_name = name.substr( 0, ext_index + 1 ) + extension;	// else replace extension
-	
-	cout << "Writing to " << output_name << "..." << endl;
-	
+		
 	// open file for binary output
 	outfile.open( output_name.c_str() , ios::binary | ios::out );
 
+	// display error if creating file failed
+	if ( outfile.fail() )
+	{
+		cerr << "Failed to create " << output_name.c_str();
+		return -1;
+	}
+		
 	// set bit / buffer position
 	buffer_position = 1;
 	bit_position = 0;
@@ -383,7 +390,15 @@ string output_name;
 	// close output file
 	outfile.close();
 
-	return 0;
+	// open file for binary input
+	infile.open( output_name.c_str() , ios::binary | ios::in );
+	
+	// get length of compressed data
+        output_length = get_file_length( infile );
+        
+        infile.close();
+                       
+	return output_length;
 }
 
 
@@ -659,12 +674,14 @@ int position = 0;
 // compress a file
 void compress( string file )
 {
+int compressed_length;
+
  	occur_index = 0;	// reset position of first free occur struct
  	
 	// try reading the file to be compressed
 	if ( readfile( file ) == -1 )
 	{
-		cout << "File " << file << " doesn't exist!" << endl;	
+		cerr << "Failed to read " << file << endl;	
 		return;
 	}	
            
@@ -695,8 +712,12 @@ void compress( string file )
 	strip_matches();      
 
 	// write compressed data
-	write_file( file );
-                           
+	compressed_length = write_file( file );
+	
+	// output statistics if writing file succeeded
+	if ( compressed_length > 0 )
+		cout << length << " -> " << compressed_length << endl;
+                                      		           
         // remove data
 	delete [] occur_pool; 	
 	delete [] match_results;
