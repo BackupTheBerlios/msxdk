@@ -1,0 +1,34 @@
+ISMINGW := $(shell uname | grep MINGW)
+ifneq ($(ISMINGW),)
+	EXTENSION = .exe
+else
+	EXTENSION = 
+endif
+
+INCDIR   += ../include
+BINDIR   += ../../bin
+LIBDIR   += ../lib
+LIBS     +=
+
+CXXFLAGS = -Wall -O3 -I$(INCDIR)
+ifneq ($(ISMINGW),)
+	CXXFLAGS += -DMINGW
+else
+	CXXFLAGS += -DMAX_PATH=PATH_MAX
+endif
+LDFLAGS  = -L$(LIBDIR)
+
+include ../makefiles/cppwithdeps
+
+all: $(TARGET)$(EXTENSION)
+
+$(TARGET)$(EXTENSION): $(DEPDIR) $(OBJECTS)
+	g++ $(LDFLAGS) -o $@ $(OBJECTS) $(LIBS)
+	strip $@
+
+clean:
+	$(RM) $(OBJECTS) $(TARGET)$(EXTENSION)
+	$(RM) -r $(DEPDIR)	
+
+install: all
+	cp -f $(TARGET)$(EXTENSION) $(BINDIR)
