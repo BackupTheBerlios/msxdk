@@ -1,8 +1,3 @@
-
-/* testcrap
-	boring
-	*/
-	
 // Copyright (c) 2003-2004 Eli-Jean Leyssens
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy of 
@@ -46,12 +41,6 @@ using std::string;
 
 #include "FATDisk.h"
 #include "OptionParser.h"
-
-void strcpysafe( char * dest, int destsize, const char * src, int reserve = 0)
-{
-	strncpy( dest, src, destsize - reserve - 1);
-	dest[ destsize - reserve - 1] = '\0';
-}
 
 #define PATHSIZE (MAX_PATH+1)
 
@@ -109,15 +98,6 @@ bool check_host_directory( void)
 			ret = false;
 		}
 	}
-	return ret;
-}
-
-bool execute_write( const char * filename)
-{
-	bool	ret = true;
-	/*xxx
-	
-	*/
 	return ret;
 }
 
@@ -378,7 +358,7 @@ bool directory_to_cluster( const CLUSTER & start_cluster, const string & directo
 	return ret;
 }
 
-bool recursive_read( const string host_directory, const string image_directory, const CLUSTER cluster, const char * name)
+bool recursive_read( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
 {
 	bool	ret = true;
 	
@@ -435,7 +415,7 @@ cout << "directory found: " << hostfile << endl;
 							}
 							if ( ret)
 							{
-								ret = recursive_read( hostfile + "/", image_directory + hostify( object_info.name, object_info.extension) + "/", object_info.first_cluster, "*");
+								ret = recursive_read( hostfile + "/", image_directory + hostify( object_info.name, object_info.extension) + "/", "*", object_info.first_cluster);
 							}
 						}
 						else
@@ -491,118 +471,25 @@ cout << "file found: " << hostfile << endl;
 	return ret;
 }
 
-bool execute_read( const char * filename)
+bool preprocess_filename( const char * filename, string & host_directory, string & image_directory,
+							 string & leafname, CLUSTER & image_directory_cluster)
 {
 	bool	ret = true;
 
-	string	directory, leafname;
+	string	directory;
 	split_path( filename, directory, leafname);
 	if ( g_host_directory.size() > 0)
 	{
-		CLUSTER	image_directory_cluster;
-		ret = 	directory_to_cluster( g_image_directory_cluster, directory, image_directory_cluster) &&
-				recursive_read( g_host_directory + hostify( directory), g_image_directory + directory,
-				image_directory_cluster, leafname.c_str());				
+		host_directory = g_host_directory + hostify( directory);
+		image_directory = g_image_directory + directory;
+		ret = directory_to_cluster( g_image_directory_cluster, directory, image_directory_cluster);
 	}
 	else
 	{
-		ret = recursive_read( directory, g_image_directory, 
-				g_image_directory_cluster, leafname.c_str());
+		host_directory = directory;
+		image_directory = g_image_directory;
+		image_directory_cluster = g_image_directory_cluster;
 	}
-	/*
-	if -d then
-		filename: \ -> / ,  remove leading /
-		filename: split: directory, leaf
-		image_cluster = resolve( image_start_cluster + directory)
-		recursive_read( g_host_directory + hostify(directory), g_image_directory+directory,
-						image_cluster, leaf)
-	else
-		filename: split: directory, leaf		
-		recursive_read( directory, g_image_directory, 
-						g_image_cluster, leaf);
-	endif
-	*/
-	
-	/*
-	//xxx
-	int entries;
-	if ( fatdisk.get_directory_entries( ROOT_DIRECTORY_CLUSTER, entries))
-	{
-		cout << "Root directory contains " << entries << " entries" << endl;
-		FATDisk::object_info_t	object_info;
-		for ( int index = 0 ; index < entries; ++index)
-		{
-			if ( fatdisk.get_directory_entry( ROOT_DIRECTORY_CLUSTER, index, object_info))
-			{
-				if ( object_info.name[0] != '\0')
-				{
-					cout << object_info.name << "." << object_info.extension << endl;
-					ofstream	output;
-					char fname[12];
-					sprintf( fname, "%s.%s", object_info.name, object_info.extension);
-					output.open( fname, ios::out|ios::binary);
-					if ( !output.fail())
-					{
-						fatdisk.read_object( object_info.first_cluster, object_info.size, output);
-						output.close();
-					}
-				}
-			}
-		}
-	}
-	*/
-	//xxx
-	return ret;
-}
-
-bool dodsk_read( int argc, char ** argv)
-{
-	bool    ret = true;
-
-	/*	
-	DIR * opened_dir = opendir( "C:\\MA*");
-	if ( opened_dir != NULL)
-	{
-		struct dirent * entry;
-		
-		while ( (entry = readdir( opened_dir)) != NULL)
-		{
-			cout << entry->d_name << endl;
-		}
-		closedir( opened_dir);
-		opened_dir = NULL;
-	}
-	else
-	{
-		report_stat_error( g_host_directory);		
-	}
-	*/
-
-	ret = g_fatdisk.open( g_dsk_filename, g_dsk_exist ? FATDisk::OPEN_MUSTEXIST : FATDisk::OPEN_READONLY, g_format, g_bootblock);
-	if (ret)
-	{
-		//xxx		
-		ret = check_host_directory() && directory_to_cluster( ROOT_DIRECTORY_CLUSTER, g_image_directory, g_image_directory_cluster);
-		if ( ret)
-		{
-			if ( argc == 0)
-			{
-				ret = execute_read( "*");
-			}
-			else
-			{
-				for ( int arg_index = 0 ; arg_index < argc ; ++arg_index)
-				{
-					if ( !execute_read( argv[ arg_index]))
-					{
-						ret = false;
-					}
-				}
-			}
-		}
-		g_fatdisk.close();
-	}
-
 	return ret;
 }
 
@@ -654,72 +541,73 @@ bool write_files( CLUSTER directory_cluster, char * wildcardedname)
 	return ret;
 }
 
-bool dodsk_write( int argc, char ** argv)
+bool recursive_write( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
+{
+	bool	ret = true;
+	/*	
+	DIR * opened_dir = opendir( "C:\\MA*");
+	if ( opened_dir != NULL)
+	{
+		struct dirent * entry;
+		
+		while ( (entry = readdir( opened_dir)) != NULL)
+		{
+			cout << entry->d_name << endl;
+		}
+		closedir( opened_dir);
+		opened_dir = NULL;
+	}
+	else
+	{
+		report_stat_error( g_host_directory);		
+	}
+	*/
+	return ret;
+}
+
+bool recursive_mkdir( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
 {
 	bool    ret = true;
-	CLUSTER directory_cluster = CLUSTER_NONE;
-	
-	FATDisk fatdisk;
+	//xxx
+	return ret;
+}
 
-	ret = fatdisk.open( g_dsk_filename, g_dsk_exist ? FATDisk::OPEN_MUSTEXIST : 0, g_format, g_bootblock);
-	//xxx open .dsk file
+bool recursive_delete( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
+{
+	bool    ret = true;
+	//xxx
+	return ret;
+}
 
-	// translate directory-in-dsk to directory_cluster
-	// if not found then
-	//   if g_directory_exist then
-	//     print error("dir not exist")
-	//   else
-	//     mkdir(dir)
-	//   endif
-	// endif
+bool dodsk_misc( 
+	int argc, char ** argv, 
+	bool (*process)( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster),
+	const bool read_only)
+{
+	bool    ret = true;
 
-	cout << "g_dsk_filename = " << g_dsk_filename << endl;
-
+	ret = g_fatdisk.open( g_dsk_filename, (g_dsk_exist ? FATDisk::OPEN_MUSTEXIST : 0) | (read_only ? FATDisk::OPEN_READONLY : 0), g_format, g_bootblock);
 	if (ret)
 	{
-		for ( int name_index = 1 ; name_index < argc ; ++name_index)
+		//xxx		
+		ret = check_host_directory() && directory_to_cluster( ROOT_DIRECTORY_CLUSTER, g_image_directory, g_image_directory_cluster);
+		if ( ret)
 		{
-			char wildcardedname[PATHSIZE];
-			strcpysafe( wildcardedname, sizeof(wildcardedname), argv[name_index], 3);
-			if ( wildcardedname[ strlen( wildcardedname) - 1] == '\\')
+			for ( int arg_index = argc ? argc : -1 ; arg_index < argc ; ++arg_index)
 			{
-				strcat( wildcardedname, "*.*");
-			}
-			// xxx pass on the dsk object to write_files
-			ret = write_files( directory_cluster, wildcardedname);
-			if ( !ret)
-			{
-				break;
+				string	host_directory, image_directory, leafname;
+				CLUSTER	image_directory_cluster;
+				if ( 
+					!preprocess_filename( argc ? argv[ arg_index] : "*", host_directory, image_directory, 
+						leafname, image_directory_cluster) ||
+					!process( host_directory, image_directory, leafname.c_str(), image_directory_cluster)
+					)
+				{
+					ret = false;
+				}
 			}
 		}
-	}
-
-	//xxx close the .dsk file
-
-	return ret;
-}
-
-bool dodsk_mkdir( int argc, char ** argv)
-{
-	bool    ret = true;
-
-	//xxx open .dsk file
-
-	if (ret)
-	{
-	}
-
-	return ret;
-}
-
-bool dodsk_delete( int argc, char ** argv)
-{
-	bool    ret = true;
-
-	//xxx open .dsk file
-
-	if (ret)
-	{
+		g_fatdisk.close();
 	}
 
 	return ret;
@@ -922,16 +810,16 @@ int main( int argc, char ** argv)
 			// Nothing to do
 			break;
 		case COMMAND_READ:
-			ret = dodsk_read( argc - arg_index, &argv[ arg_index]);
+			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_read, true);
 			break;
 		case COMMAND_WRITE:
-			ret = dodsk_write( argc - arg_index, &argv[ arg_index]);
+			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_write, false);
 			break;
 		case COMMAND_MKDIR:
-			ret = dodsk_mkdir( argc - arg_index, &argv[ arg_index]);
+			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_mkdir, false);
 			break;
 		case COMMAND_DELETE:
-			ret = dodsk_delete( argc - arg_index, &argv[ arg_index]);
+			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_delete, false);
 			break;
 		}
 		destroy_fatdisk();
