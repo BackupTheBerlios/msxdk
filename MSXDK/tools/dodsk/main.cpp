@@ -248,6 +248,70 @@ void split_path( const string & path, string & directory, string & leafname)
 	}
 }
 
+/** Turns the given filename into an image-compatible/-friendly name and extension.
+	@param filename		Fillename to be imageified.
+	@param name	Name part of the imageified filename.
+	@param extension Extension part of the imageified filename.
+	@return <code>true</code> if the conversion was successful, <code>false</code> otherwise
+*/
+bool imageify( const string & filename, char name[8+1], char extension[3+1])
+{
+	bool	ret = true;
+	
+	size_t	dotpos = filename.rfind( ".");
+	if ( dotpos != string::npos)
+	{
+		if ( filename.find( ".") == dotpos)
+		{
+			if ( dotpos <= 8)
+			{
+				if ( (filename.size() - dotpos - 1) <= 3)
+				{
+					sprintf( name, "%-8s", filename.substr( 0, dotpos).c_str());
+					sprintf( extension, "%-3s", filename.substr( dotpos + 1).c_str());
+				}
+				else
+				{
+					cerr << "Can't convert the filename " << filename << " to a FAT filename since it contains more than 3 characters after the dot." << endl;
+					ret = false;
+				}
+			}
+			else
+			{
+				cerr << "Can't convert the filename " << filename << " to a FAT filename since it contains more than 8 characters before the dot." << endl;
+				ret = false;
+			}
+		}
+		else
+		{
+			cerr << "Can't convert the filename " << filename << " to a FAT filename since it contains more than 1 dot." << endl;
+			ret = false;
+		}
+	}
+	else
+	{
+		if ( filename.size() < 8)
+		{
+			sprintf( name, "%-8s", filename.substr( 0,8).c_str());
+			if ( filename.size() <= (8+3))
+			{
+				sprintf( extension, "%-3s", filename.substr( 8).c_str());
+			}
+			else
+			{
+				cerr << "Can't convert the filename " << filename << " to a FAT filename since it is too long." << endl;
+				ret = false;
+			}
+		}
+		else
+		{
+			sprintf( name, "%-8s", filename.c_str());
+			strcpy( extension, "   ");
+		}
+	}
+	return ret;
+}
+
 string hostify( const char * name, const char * extension)
 {
 	string	hostifiedname = string(name).substr( 0, non_right_space( name));
@@ -541,6 +605,36 @@ bool write_files( CLUSTER directory_cluster, char * wildcardedname)
 	return ret;
 }
 
+bool find_directory_entry( FATDisk::object_info_t & entry, bool & found)
+{
+	bool	ret = true;
+	
+	found = false;
+	int	entries;
+	ret = g_fatdisk.get_directory_entries( entry.directory, entries);
+	if ( ret)
+	{
+		FATDisk::object_info_t	object_info;
+		bool	found = false;
+		for ( int index = 0 ; ret && !found && index < entries ; ++index)
+		{
+			ret = g_fatdisk.get_directory_entry( entry.directory, index, object_info);
+			if ( ret)
+			{
+				if ( 
+					( strcasecmp( entry.name, object_info.name) == 0) &&
+					( strcasecmp( entry.extension, object_info.extension) == 0)
+					)
+				{
+					entry = object_info;
+					found = true;
+				}
+			}
+		}
+	}
+	return ret;
+}
+
 bool recursive_write( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
 {
 	bool	ret = true;
@@ -567,12 +661,36 @@ cout << "recursive write: " << host_directory << "," << name << endl;
 					if ( S_ISDIR( file_stat.st_mode))
 					{
 						cout << "directory found: " << hostfile << endl;
-						//xxx
+						//xxx call execute_mkdir ....
 					}
 					else
 					{
 						cout << "file found: " << hostfile << endl;
-						//xxx
+						FATDisk::object_info_t	object_info;
+						memset( &object_info, 0, sizeof( object_info));
+						object_info.directory = cluster;						
+						bool found;						
+						ret = imageify( name, object_info.name, object_info.extension) && 
+								find_directory_entry( object_info, found);
+						if ( ret)
+						{
+							if ( !found)
+							{
+								object_info.attributes.archive = true;
+								//xxx need to get the read-only attribute from the host somehow
+								ret = g_fatdisk.new_directory_entry( object_info);
+							}
+							if ( ret)
+							{
+								ret = g_fatdisk.set_object_size( object_info.first_cluster, file_stat.st_size);
+								if ( ret)
+								{
+									// set_object_size might have altered the object's first_cluster
+									// so it needs to be written back to the image
+									ret = g_fatdisk.set_directory_entry( object_info);
+								}
+							}
+						}
 					}
 				}
 				else
@@ -602,7 +720,9 @@ bool single_mkdir( const string host_directory, const string image_directory, co
 {
 	bool    ret = true;
 	
-	//xxx
+	//xxx WARNING: SHOULD NOT USE DODSK_MISC, SINCE ALL PARAMS SHOULD BE RELATIVE, I.E. NOT FULL
+	//xxx PATHS LIKE C:/HAHA ALLOWED!   OR HAVE DODSK_MISC TAKE ANOTHER BOOLEAN THAT INDICATES
+	//xxx SOMETHING LIKE THIS.
 	cerr << "mkdir not implemented yet" << endl;
 	ret = false;
 	//xxx

@@ -91,7 +91,7 @@ public:
 		int				index;
 		
 		char			name[8+1];
-		char			extension[8+1];
+		char			extension[3+1];
 		CLUSTER			first_cluster;
 		DWORD			size;
 		struct 	
