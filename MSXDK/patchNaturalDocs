@@ -1755,8 +1755,8 @@ diff -urN NaturalDocs/Modules/NaturalDocs/Topics.pm NaturalDocsMSXDK/Modules/Nat
 -                            'typedefs'    => TOPIC_TYPE_LIST
 +                            'typedefs'    => TOPIC_TYPE_LIST,
 +
-+                            'macro'      => TOPIC_GENERIC,
-+                            'macros'      => TOPIC_GENERIC_LIST
++                            'macro'      => TOPIC_MACRO,
++                            'macros'      => TOPIC_MACRO_LIST
  
               );
  
