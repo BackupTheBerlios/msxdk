@@ -30,7 +30,7 @@ using std::cout;
 using std::cerr; 
 using std::endl;
 
-#include <fstream>
+#include <fstream>   
 using std::ifstream;
 using std::ofstream;
 using std::ios;
@@ -47,8 +47,7 @@ using std::pair;
 // second = match position
 typedef pair<int,int> match_result;
 
-int get_file_length( ifstream & file );
-int write_file( const string & output_name, unsigned char *data, int length, match_result *match_results );
+void write_file( ofstream *outfile, unsigned char *data, int length, match_result *match_results );
 
 
 #endif

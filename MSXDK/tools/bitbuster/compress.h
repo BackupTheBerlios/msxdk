@@ -42,7 +42,7 @@ using std::string;
 typedef pair<int,int> match_result;
 
 
-void compress( const string & file, const string & output_file, int p_max_depth );
+void compress( const string & file, const string & output_file, int p_max_depth, int p_block_length );
 
 
 #endif

@@ -24,7 +24,7 @@
 #include "encode.h"
 
 
-ofstream outfile;                       	// stream where compressed data will be written to
+ofstream *outfile;                       	// stream where compressed data will be written to
 unsigned char bitdata;                  	// current bit status of bitstream
 int bitcount;                           	// number of bits written to current byte
 const int buffer_length = 64;           	// size of buffer for compressed data
@@ -33,40 +33,13 @@ int buffer_position;                    	// current position to write new bytes 
 int bit_position;                       	// current position to write bit data to
 
 
-// return length of opened file
-int get_file_length( ifstream & file )
-{
-int current_position;
-int length;
-
-	// not opened file?
-	if ( file.fail() )
-		return -1;
-
-	// get current file position
-	current_position = file.tellg();
-
-	// move to end of file
-	file.seekg( 0, ios::end );
-
-	// get current file position (=length of file)
-	length = file.tellg();
-
-	// set file position back to original position
-	file.seekg( current_position, ios::beg );
-
-	// return found filelength
-	return length;
-}
-
-
 // flush data up to the current bit position to outfile
 void flush_buffer()
 {
 int position = 0;
 
 	// write all data before bit position
-	outfile.write( (char*)outbuffer, bit_position );
+	outfile->write( (char*)outbuffer, bit_position );
 
 	// set new position to write bytes to
 	buffer_position = buffer_position - bit_position;
@@ -85,7 +58,7 @@ void flush_rest()
 {
  	// write data, if any
 	if ( buffer_position )
-		outfile.write( (char*)outbuffer, buffer_position - 1);
+		outfile->write( (char*)outbuffer, buffer_position - 1);
 
 	// reset buffer / bit positions
 	buffer_position = bit_position = 0;
@@ -178,29 +151,16 @@ unsigned int mask = 32768;
 }
 
 // output compressed data to file name
-int write_file( const string & output_name, unsigned char *data, int length, match_result *match_results  )
+void write_file( ofstream *p_outfile, unsigned char *data, int length, match_result *match_results  )
 {
 int position = 0;
 int offset;
-ifstream infile;
-int output_length;
-		
-	// open file for binary output
-	outfile.open( output_name.c_str() , ios::binary | ios::out );
 
-	// display error if creating file failed
-	if ( outfile.fail() )
-	{
-		cerr << "Failed to create " << output_name.c_str();
-		return -1;
-	}
-		
+	outfile = p_outfile;
+
 	// set bit / buffer position
 	buffer_position = 1;
 	bit_position = 0;
-
-	// output filelength 
-	outfile.write( (char*)&length, 4 );
 
 	// loop while there's more compressed data to process
 	while ( position < length )
@@ -268,19 +228,6 @@ int output_length;
 			
 	// write all remaining data
 	flush_rest();
-
-	// close output file
-	outfile.close();
-
-	// open file for binary input
-	infile.open( output_name.c_str() , ios::binary | ios::in );
-	
-	// get length of compressed data
-        output_length = get_file_length( infile );
-        
-        infile.close();
-                       
-	return output_length;
 }
 
 

@@ -57,7 +57,7 @@ void print_syntax( ostream & stream = cerr )
 {
 	stream << "Compress file(s)" << endl;
 	stream << endl;
-	stream << g_program_name << " [-ho] [-s <strength>] [-e <extension>]";
+	stream << g_program_name << " [-hoa] [-s <strength>] [-e <extension>] [-b <length>]";
 	stream << " <filename> [<filename>...]" << endl;
         stream << endl;
 	stream << "  -h             Print this information" << endl;
@@ -67,7 +67,9 @@ void print_syntax( ostream & stream = cerr )
 	stream << "  -s <strength>  Set the compression strength (2...16)" << endl;
 	stream << "                 Default strength is 12" << endl;
 	stream << "  -e <extension> Set the extension used for compressed file(s)" << endl;
-	stream << "                 Default extension is pck" << endl;       
+	stream << "                 Default extension is pck" << endl;
+	stream << "  -b <length>    Set block length for compressed blocks" << endl;
+	stream << "                 Default block length is original file size" << endl;      
         stream << endl;
 }
 
@@ -180,7 +182,7 @@ bool process_arguments( int argc, char ** argv, int & arg_index )
 						output_name = output_name.substr( 0, ext_index + 1 ) + g_extension;	// else replace extension
 				}
 								
-				compress( argv[ arg_index], output_name, g_max_depth );
+				compress( argv[ arg_index], output_name, g_max_depth, g_block_length );
 				
 				arg_index += ( g_output_names ? 2 : 1);
 			}

@@ -23,18 +23,14 @@
 #include "encode.h"
 
 
-unsigned char *data;				// data to crunch
-int length;					// length of data to crunch
+unsigned char *data;		// data to crunch
+int length;			// length of data to crunch
 
 
 int max_depth;
 
-
-
-
 // matches for all positions in the data
 match_result *match_results;
-
 
 // struct to store the location of a 2 byte combo 
 typedef struct occur
@@ -55,38 +51,31 @@ occur *get_occur()
 }
 
 
-// read a file specified by the name
-// return file: -1 = failure, 0 = success
-int readfile( string name )
+// return length of opened file
+int get_file_length( ifstream & file )
 {
-ifstream infile;
+int current_position;
+int length;
 
-	// open file for binary input
-	infile.open( name.c_str() , ios::binary | ios::in );
-
-	// check for failure
-	if ( infile.fail() )
+	// not opened file?
+	if ( file.fail() )
 		return -1;
 
-	// get file length
-	if ( ( length = get_file_length( infile ) ) == -1 )
-		return -1;
+	// get current file position
+	current_position = file.tellg();
 
-	// allocate space to store data
-	data = new unsigned char[ length ];
+	// move to end of file
+	file.seekg( 0, ios::end );
 
-	// read file content
-	infile.read( (char*)data, length );
+	// get current file position (=length of file)
+	length = file.tellg();
 
-	// check for failure
-	if ( infile.fail() )
-		return -1;
+	// set file position back to original position
+	file.seekg( current_position, ios::beg );
 
-	infile.close();
-
-	return 0;
+	// return found filelength
+	return length;
 }
-
 
 
 // get length of match from current position
@@ -161,7 +150,9 @@ int pair;
 occur *cur_occur;
 match_result result;
 int position = 0;
-
+    
+	occur_index = 0;	// reset position of first free occur struct
+	
 	//loop through all data, except last element
 	//since it can't be the start of a value pair
 	while ( position < length - 1 )
@@ -182,7 +173,7 @@ int position = 0;
                 
                 // store closest occurance
 		occur_ptr[ pair ] = cur_occur;
-
+		
 		// if match found
 		if ( best_result.first > 1 )
 		{
@@ -380,58 +371,119 @@ int position = 0;
 
 
 // compress a file
-void compress( const string & file, const string & output_file, int p_max_depth )
+void compress( const string & file, const string & output_file, int p_max_depth, int block_length  )
 {
-int compressed_length;
+int compressed_length = 0;
+int file_length;
+ofstream outfile;
+ifstream infile;
+int block_count;
+int position;
+int remaining_length;
 
 	max_depth = p_max_depth;
+	 	
+	infile.open( file.c_str() , ios::binary | ios::in );
 	
- 	occur_index = 0;	// reset position of first free occur struct
- 	
-	// try reading the file to be compressed
-	if ( readfile( file ) == -1 )
+	if ( infile.fail() )
 	{
 		cerr << "Failed to read " << file << endl;	
 		return;
 	}	
-           
+
+	remaining_length = file_length = get_file_length( infile );
+         
+        if ( block_length == -1 )
+		block_length = file_length;
+		 
+	if ( file_length == 0 )
+	{
+		cerr << "Nothing to compress!" << endl;
+		return;
+	}	
+	  
+       	outfile.open( output_file.c_str(), ios::binary | ios::out );
+	       
+	if ( outfile.fail() )
+	{
+		cerr << "Failed to open " << output_file << " for output" << endl;
+		return;
+	}
+        
+	outfile.write( (char*)&file_length, 4 );
+		
+	block_count = ( file_length - 1 ) / block_length + 1;
+	             	               
+	outfile.write( (char*)&block_count, 4 );
+						             	   
  	cout << "Compressing: " << file << "... ";
  	cout.flush();
  	
-	// mark each value pair as non-occurring yet
-	for ( int i = 0; i < 256 * 256; i++)
-		occur_ptr[ i ] = NULL;
-
-	// create new array for storing match results
-	match_results = new match_result[ length ];
-
-	// create new pool for occurances
-	occur_pool = new occur[ length ];
+ 	while ( block_count-- )
+ 	{ 		 
+	 	position = outfile.tellp();
+		
+		outfile.write( (char*)&position, 4 );
+				 		
+ 		if ( remaining_length < block_length )
+ 			length = remaining_length;
+ 		else
+ 			length = block_length;
+ 			
+		// mark each value pair as non-occurring yet
+		for ( int i = 0; i < 256 * 256; i++)
+			occur_ptr[ i ] = NULL;
 	
-	// reset match results
-	for ( int j = 0; j < length; j++)
-	{
-		match_results[ j ].first = -1;
-		match_results[ j ].second = -1;
+		data = new unsigned char[ length ];
+		
+		infile.read( (char*)data, length );
+	
+		// create new array for storing match results
+		match_results = new match_result[ length ];
+	
+		// create new pool for occurances
+		occur_pool = new occur[ length ];
+		
+		// reset match results
+		for ( int j = 0; j < length; j++)
+		{
+			match_results[ j ].first = -1;
+			match_results[ j ].second = -1;
+		}
+	
+		// find matches for the whole file
+		find_matches();
+	
+		// remove all bad matches
+		strip_matches();      
+	        
+		// write compressed data
+		write_file( &outfile, data, length, match_results );
+	          		                            		           
+	        // remove data
+		delete [] occur_pool; 	
+		delete [] match_results;
+		delete [] data;
+		
+		compressed_length = outfile.tellp();
+		
+		outfile.seekp( position, ios::beg );
+		
+		position = compressed_length - position - 4;
+		
+		outfile.write( (char*)&position, 4 );
+		
+		outfile.seekp( 0, ios::end );
+		
+		remaining_length -= block_length;
 	}
-
-	// find matches for the whole file
-	find_matches();
-
-	// remove all bad matches
-	strip_matches();      
-
-	// write compressed data
-	compressed_length = write_file( output_file, data, length, match_results );
-                           
+	
+	infile.close(); 
+	outfile.close();
+	
 	// output statistics if writing file succeeded
 	if ( compressed_length > 0 )
-		cout << length << " -> " << compressed_length << endl;
-                                      		           
-        // remove data
-	delete [] occur_pool; 	
-	delete [] match_results;
-	delete [] data;
+		cout << file_length << " -> " << compressed_length << endl;	 
 }
 
 
