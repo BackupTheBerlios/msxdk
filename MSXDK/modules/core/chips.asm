@@ -50,6 +50,9 @@
 ; DEFINE: INCLUDE_CHIPS_MSXMUSIC
 ;	Include support for the MSX Music chip, as found in the FM-PAC.
 ;	
+; DEFINE: INCLUDE_CHIPS_MOONSOUND
+;	Include support for the MoonSound.
+;
 
 ;****if* chips/init_chips
 ;
@@ -248,7 +251,19 @@ msx_audio_detection:
 		ld	(chips), a		;
 .done:
 		ENDIF
-		
+
+		IFDEF	INCLUDE_CHIPS_MOONSOUND
+		; Detect MoonSound
+moonsound_detection:
+		in	a,(OPL4_STATUS)		; Read a byte from opl4 status port
+		inc	a                       ; If an MoonSound is present this will never return $ff
+		jr	z, .done		; So, if a $ff is returned this means no MoonSound present.
+		ld	a, (chips)		; MoonSound found
+		or	1<<CHIP_MOONSOUND	;
+		ld	(chips),a		;
+.done:
+		ENDIF
+
 .return:
 		ei
 		xor	a
@@ -433,8 +448,12 @@ string_opll:	db	"OPLL"
 @CHIP_MSXMUSIC:	equ	3
 		EXPORT	CHIP_MSXMUSIC
 		jr	get_chip_info_msxmusic
-		
-CHIP_UNKNOWN:	equ	4
+
+@CHIP_MOONSOUND:	equ	4
+		EXPORT	CHIP_MOOONSOUND
+		jr	get_chip_info_moonsound
+				
+CHIP_UNKNOWN:	equ	5
 		jr	get_chip_info_unknown			
 				
 get_chip_info_r800:
@@ -451,6 +470,10 @@ get_chip_info_msxaudio:
 get_chip_info_msxmusic:	
 		ld	a, (msxmusic_slotid)	
 		ret
+get_chip_info_moonsound:
+		ld	a, (chips)
+		and	1<<CHIP_MOONSOUND
+		ret		
 get_chip_info_unknown:
 		xor	a
 		ret		
