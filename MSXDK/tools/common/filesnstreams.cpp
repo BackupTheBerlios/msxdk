@@ -90,7 +90,7 @@ bool save_file( const char * path, char * data, size_t size)
 	return ret;
 }
 
-void write_littleendian( std::ofstream & stream, const int bytes, const long value)
+void write_littleendianX( std::ofstream & stream, const int bytes, const long value)
 {
 	char	buf[ 4];
 	
@@ -99,6 +99,31 @@ void write_littleendian( std::ofstream & stream, const int bytes, const long val
 		buf[ i] = (char)(value >> ( i << 3));
 	}
 	stream.write( buf, bytes);
+}
+
+void write_littleendian( std::ofstream & stream, const int bytes, const long value)
+{
+	write_littleendianX( stream, bytes, (const long) value);
+}
+
+void write_littleendian( std::ofstream & stream, const int bytes, const short value)
+{
+	write_littleendianX( stream, bytes, (const long) value);
+}
+
+void write_littleendian( std::ofstream & stream, const int bytes, const unsigned short value)
+{
+	write_littleendianX( stream, bytes, (const unsigned long) value);
+}
+
+void write_littleendian( std::ofstream & stream, const int bytes, const char value)
+{
+	write_littleendianX( stream, bytes, (const long) value);
+}
+
+void write_littleendian( std::ofstream & stream, const int bytes, const unsigned char value)
+{
+	write_littleendianX( stream, bytes, (const unsigned long) value);
 }
 
 void read_littleendian( std::ifstream & stream, const int bytes, long & value)
@@ -122,4 +147,32 @@ void read_littleendian( std::ifstream & stream, const int bytes, unsigned long &
 	{
 		value = value | ( ((unsigned long)((unsigned char)buf[i])) << (i << 3));
 	}
+}
+
+void read_littleendian( std::ifstream & stream, const int bytes, short & value)
+{
+	long	l;
+	read_littleendian( stream, bytes, l);
+	value = (short) l;
+}
+
+void read_littleendian( std::ifstream & stream, const int bytes, unsigned short & value)
+{
+	unsigned long	l;
+	read_littleendian( stream, bytes, l);
+	value = (unsigned short) l;
+}
+
+void read_littleendian( std::ifstream & stream, const int bytes, char & value)
+{
+	long	l;
+	read_littleendian( stream, bytes, l);
+	value = (char) l;
+}
+
+void read_littleendian( std::ifstream & stream, const int bytes, unsigned char & value)
+{
+	unsigned long	l;
+	read_littleendian( stream, bytes, l);
+	value = (unsigned char) l;
 }
