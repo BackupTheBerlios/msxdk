@@ -19,19 +19,19 @@
 
 #include <stdio.h>
 #include <vector>
+#include <fstream>
+#include <string>
 
 class Archive {
 private:
-    FILE    		  	  * m_fh;
-    char    				m_arcpath[ MAX_PATH];
+    std::ofstream			m_fh;
+    std::string				m_arcpath;
     std::vector<char>		m_attributes;
     std::vector<
     	std::vector<
     		std::vector<
     			char> > >	m_data;
 public:
-    Archive();
-    ~Archive();
 
     bool create( const char * path);
     

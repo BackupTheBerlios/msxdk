@@ -32,30 +32,21 @@ using std::ios;
 
 using std::vector;
 
-Archive::Archive()
-{
-    m_fh = NULL;
-}
-
-Archive::~Archive()
-{
-    if ( m_fh != NULL)
-    {
-        fclose( m_fh);
-        m_fh = NULL;
-    }
-}
-
 bool Archive::create( const char * path)
 {
-    m_fh = fopen( path, "wb");
-    if ( m_fh == NULL)
-    {
+	bool	ret = true;
+	
+	m_fh.open( path, ios::in|ios::binary|ios::out|ios::trunc);
+	if ( m_fh)
+	{
+	    m_arcpath = path;
+	}
+	else
+	{
         cerr << "Failed to create archive " << path << endl;
-        return false;
+        ret = false;
     }
-    strcpy( m_arcpath, path);
-    return true;
+    return ret;
 }
 
 void Archive::addfile( char attributes)
@@ -72,6 +63,7 @@ bool Archive::addchunk( const char * path)
 
 bool Archive::dump( void)
 {
+	bool	ret = true;
     const int filescount = (int)m_data.size();
 
     int tocsize = (int)(6 * filescount);
@@ -94,34 +86,40 @@ bool Archive::dump( void)
             dataoffset += 2 + (long)(m_data[i][j].size());
         }
     }
-    if ( (int)fwrite( info, 1, 2 + tocsize, m_fh) != (2 + tocsize))
+    m_fh.write( info, 2 + tocsize);
+    if ( m_fh)
+    {
+	    for ( int i = 0 ; ret && i < filescount; ++i)
+	    {
+	        for ( int j = 0 ; ret && j < (int)m_data[i].size(); ++j)
+	        {
+	            char chunkinfo[2];
+	
+	            chunkinfo[ 0] = (char)((m_data[i][j].size() >> 0) & 0xff);
+	            chunkinfo[ 1] = (char)((m_data[i][j].size() >> 8) & 0xff);
+	            m_fh.write( chunkinfo, 2);
+	            if ( !m_fh)
+	            {
+	                cerr << "Failed to write all chunkheader bytes to archive file " << m_arcpath << endl;
+	                ret = false;
+	            }
+	            else
+	            {
+	            	m_fh.write( &m_data[i][j][0], m_data[i][j].size());
+	            	if ( !m_fh)
+	                {
+	                    cerr << "Failed to write all chunkdata bytes to archive file " << m_arcpath << endl;
+	                    ret = false;
+	                }
+	            }
+	        }
+	    }
+    }
+    else
     {
         cerr << "Failed to write all header bytes to archive file " << m_arcpath << endl;
-        return false;
-    }
-    for ( int i = 0 ; i < filescount; ++i)
-    {
-        for ( int j = 0 ; j < (int)m_data[i].size(); ++j)
-        {
-            char chunkinfo[2];
-
-            chunkinfo[ 0] = (char)((m_data[i][j].size() >> 0) & 0xff);
-            chunkinfo[ 1] = (char)((m_data[i][j].size() >> 8) & 0xff);
-            if ( fwrite( chunkinfo, 1, 2, m_fh) != 2)
-            {
-                cerr << "Failed to write all chunkheader bytes to archive file " << m_arcpath << endl;
-                return false;
-            }
-            else
-            {
-                if ( fwrite( &m_data[i][j][0], 1, m_data[i][j].size(), m_fh) != m_data[i][j].size())
-                {
-                    cerr << "Failed to write all chunkdata bytes to archive file " << m_arcpath << endl;
-                    return false;
-                }
-            }
-        }
+        ret = false;
     }
     delete info;
-    return true;
+    return ret;
 }
