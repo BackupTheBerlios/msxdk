@@ -57,9 +57,9 @@ END_SCRIPT
 	# The Natural Docs zip exists, now try to unzip it.
 	if test $ISMINGW; then
 		echo "$NDZIP found, now trying to unzip it ..."
-		UNZIP=`which unzip.exe`
-		UNZIPCUT=`echo "$UNZIP" | sed s/\ //g`
-		if test ! "$UNZIP" -o "$UNZIP" != "$UNZIPCUT"; then
+		UNZIPAPP=`which unzip.exe`
+		UNZIPCUT=`echo "$UNZIPAPP" | sed s/\ //g`
+		if test ! "$UNZIPAPP" -o "$UNZIPAPP" != "$UNZIPAPPCUT"; then
 			# No unzip (in the usable path). A path becomes unusable for executables (under mingw/msys) when 
 			# it has spaces in it.
 			if test ! -f infozip/unzip.exe; then
@@ -105,22 +105,22 @@ END_MINGWUNZIP
 				fi
 			fi
 		fi
-		UNZIP="infozip/unzip.exe"
+		UNZIPAPP="infozip/unzip.exe"
 	else
-		UNZIP=`which unzip`
-		if test ! $UNZIP; then
+		UNZIPAPP=`which unzip`
+		if test ! $UNZIPAPP; then
 			echo "unzip is not installed (for this user). Please download and install  unzip from http://www.info-zip.org"
 			echo "Alternatively just unpack the $NDZIP contents into the NaturalDocs directory of MSXDK."
 			exit 1
 		fi
 	fi
-	$UNZIP $NDZIP -d NaturalDocs || exit 1
+	$UNZIPAPP $NDZIP -d NaturalDocs || exit 1
 fi	
 if test ! -f NaturalDocs/patchedForMSXDK; then
 	echo "The NaturalDocs package was not yet patched, now trying to apply the MSXDK patch ..."
 	patch -p0 < patchNaturalDocs || exit 1
 fi
 
-#XXX add real documentation generating commands here
+perl NaturalDocs/NaturalDocs -i modules -o FramedHTML FramedHTML -p NaturalDocs/ProjectMSXDK -r
 
 exit 0
