@@ -25,11 +25,11 @@
 ;	using the bitbuster algorithm.
 ;
 ; FUNCTION NAMES:
-;	The <depack> function is MODULE local, which means you have to add the prefix 
-;	"bitbuster." to its name. This is to prevent possible name clashes with
-;	functions from other libraries you might be using. However, if you define
-;	<MAKE_BITBUSTER_GLOBAL> then this function will be available without the 
-;	"bitbuster." prefix as well.
+;	The functions <depack> and <depack_raw> are MODULE local, which means you
+;	have to add the prefix "bitbuster." to its name. This is to prevent possible
+;	name clashes with functions from other libraries you might be using. 
+;	However, if you define <MAKE_BITBUSTER_GLOBAL> then these functions will be
+;	available without the "bitbuster." prefix as well.
 ;
 ; COPYRIGHT & CREDITS:
 ;	This module has been released by Arjan Bakker under the MIT License;
@@ -39,24 +39,69 @@
 ;	Defining this will make all public functions that are normally only
 ;	available with the "bitbuster." prefix to also be available without
 ;	this prefix. See the introduction of <bitbuster> for more information.
-	
-	
-	
+ 
+; DEFINE:	BITBUSTER_OPTIMIZE_SPEED
+;	Defining this will optimize the bitbuster depacker for speed, at the cost of
+;	bigger code.
+
+
+		IFDEF	BITBUSTER_OPTIMIZE_SPEED
+; use macro's for getbit routines when optimizing bitbuster depacker for speed 
+; (inlined code, no overhead by calls)
+		
 		; macro to get a bit from the bitstream
 		; carry if bit is set, nocarry if bit is clear
 		; must be entered with second registerset switched in!
 		MACRO	GET_BIT_FROM_BITSTREAM
-		add	a,a		;shift out new bit
-		jp	nz,.done	;if remaining value isn't zere, we're done
-	
-		ld	a,(hl)		;get 8 bits from bitstream
-		inc	hl		;increase source data address
-	
-		rla                     ;(bit 0 will be set!!!!)
-.done:
+		add	a,a		; shift out new bit
+		jp	nz,.done	; if remaining value isn't zere, we're done
+
+		ld	a,(hl)		; get 8 bits from bitstream
+		inc	hl		; increase source data address
+
+		rla                     ; (bit 0 will be set!!!!)
+.done:          
 		ENDM
 
+		; macro to get a bit from the bitstream
+		; carry if bit is set, nocarry if bit is clear
+		; must be entered with normal registerset switched in!
+		MACRO	GET_BIT_FROM_BITSTREAM_EXX
+		add	a,a		; shift out new bit
+		jp	nz,.done	; if remaining value isn't zere, we're done
 	
+		exx                     ; switch to 2nd registerset
+		ld	a,(hl)		; get 8 bits from bitstream
+		inc	hl		; increase source data address
+		exx                     ; switch back to regular registerset
+		
+		rla                     ; (bit 0 will be set!!!!)
+.done:          
+		ENDM
+		
+		ENDIF			; IFDEF	BITBUSTER_OPTIMIZE_SPEED
+	
+	
+		IFNDEF	BITBUSTER_OPTIMIZE_SPEED
+; use calls for getbit code when not optimizing	for speed
+
+		; macro to get a bit from the bitstream
+		; carry if bit is set, nocarry if bit is clear
+		; must be entered with second registerset switched in!
+		MACRO	GET_BIT_FROM_BITSTREAM
+		call	get_bit_from_bitstream
+		ENDM
+
+		; macro to get a bit from the bitstream
+		; carry if bit is set, nocarry if bit is clear
+		; must be entered with normal registerset switched in!			
+		MACRO	GET_BIT_FROM_BITSTREAM_EXX
+		call	get_bit_from_bitstream_exx
+		ENDM
+		
+		ENDIF			; IFNDEF BITBUSTER_OPTIMIZE_SPEED  
+	
+			
 ; FUNCTION:	depack
 ;	Depack a blob of data that was packed with Bitbuster.
 ;
@@ -66,6 +111,9 @@
 ;
 ; EXIT:
 ;	HL - Size of depacked data
+;	A  - Number of blocks left to decompress
+;	FZ - Last block has been decompressed
+;	FNZ- Last block hasn't been decompressed
 ;
 ; MODIFIES:
 ;	#AF, BC, BC', DE, DE', HL, HL'#
@@ -74,119 +122,181 @@ depack:		EXPORT	bitbuster.depack
 		IFDEF	MAKE_BITBUSTER_GLOBAL
 @depack:	EXPORT	depack		
 		ENDIF
-
-		ld	c, (hl)
-		inc	hl			;skip original file length
-		ld	b, (hl)
-		inc	hl			;which is stored in 4 bytes
-		inc	hl
-		inc	hl
 		
-		push	bc
-		call	reallydepack
+		ld	a,(block_count)
+		or	a
+		jr	nz,depack_continue	; continue depacking a block if more blocks left
+		
+		ld	a,(hl)
+		ld	(block_count),a		; store block count
+		
+		inc	hl			; move to size of first block
+		ld	(block_start),hl	; store starting address of block
+		
+depack_continue:
+		ld	hl,(block_start)	; load starting address of block 
+		inc	hl
+		inc	hl                      ; move over block size
+		
+		push	de
+		call	depack_raw	
+		
+		ld	(block_start),hl	; store starting address of next chunk	
 		pop	hl
+		ex	de,hl
+		SUB_HL_DE
+		
+		ld	a,(block_count)
+		dec	a
+		ld	(block_count),a         ; decrease number of blocks to decompress
 		ret
 		
-reallydepack:
-
-		ld	a,128
-	
+; FUNCTION:	depack_raw
+;	Depack data that was packed with Bitbuster.
+;	Decompresses the RAW data, i.e. the data that is storead after the block
+;	count and block size!
+;
+; ENTRY:
+;	HL - Address of packed data
+;	DE - Address to depack to
+;
+; EXIT:
+;	HL - Address of first byte after compressed data
+;	DE - Address of first byte after decompressed data
+;
+; MODIFIES:
+;	#AF, BC, BC', DE, DE', HL, HL'#
+;
+depack_raw:	EXPORT	bitbuster.depack_raw
+		IFDEF	MAKE_BITBUSTER_GLOBAL
+@depack_raw:	EXPORT	depack_raw		
+                ENDIF
+                
+                ld	a,128
+		
 		exx
 		ld	de,1
 		exx
 	
-depack_loop:
-		GET_BIT_FROM_BITSTREAM		;get compression type bit
-		jp	c,output_compressed	;if set, we got lz77 compression
-		ldi				;copy byte from compressed data to destination (literal byte)
-		;unrolled for extra speed
-		GET_BIT_FROM_BITSTREAM		;get compression type bit
-		jp	c,output_compressed	;if set, we got lz77 compression
-		ldi				;copy byte from compressed data to destination (literal byte)
-		GET_BIT_FROM_BITSTREAM		;get compression type bit
-		jp	c,output_compressed	;if set, we got lz77 compression
-		ldi				;copy byte from compressed data to destination (literal byte)
+depack_loop:    GET_BIT_FROM_BITSTREAM		; get compression type bit
+		jp	c,output_compressed	; if set, we got lz77 compression
+		ldi				; copy byte from compressed data to destination (literal byte)
+	
+		IFDEF	BITBUSTER_OPTIMIZE_SPEED
+		GET_BIT_FROM_BITSTREAM		; get compression type bit
+		jp	c,output_compressed	; if set, we got lz77 compression
+		ldi				; copy byte from compressed data to destination (literal byte)
+		GET_BIT_FROM_BITSTREAM		; get compression type bit
+		jp	c,output_compressed	; if set, we got lz77 compression
+		ldi				; copy byte from compressed data to destination (literal byte)
+		ENDIF
 		jp	depack_loop
 	
 
 ;handle compressed data
 output_compressed:
-		ld	c,(hl)			;get lowest 7 bits of offset, plus offset extension bit
-		inc	hl			;to next byte in compressed data
+		ld	c,(hl)			; get lowest 7 bits of offset, plus offset extension bit
+		inc	hl			; to next byte in compressed data
 
-output_match:
-		ld	b,0
+output_match:   ld	b,d
 		bit	7,c
-		jr	z,output_match1		;no need to get extra bits if carry not set
-
-		GET_BIT_FROM_BITSTREAM		;get offset bit 10 
+		jr	z,output_match1		; no need to get extra bits if carry not set
+	
+		GET_BIT_FROM_BITSTREAM		; get offset bit 10 
 		rl	b
-		GET_BIT_FROM_BITSTREAM		;get offset bit 9
+		GET_BIT_FROM_BITSTREAM		; get offset bit 9
 		rl	b
-		GET_BIT_FROM_BITSTREAM		;get offset bit 8
+		GET_BIT_FROM_BITSTREAM		; get offset bit 8
 		rl	b
-		GET_BIT_FROM_BITSTREAM		;get offset bit 7
-
-		jp	c,output_match1		;since extension mark already makes bit 7 set 
-		res	7,c			;only clear it if the bit should be cleared
+		GET_BIT_FROM_BITSTREAM		; get offset bit 7
+	
+		jp	c,output_match1		; since extension mark already makes bit 7 set 
+		res	7,c			; only clear it if the bit should be cleared
 output_match1:
 		inc	bc
-		
-; return a gamma-encoded value
-; length returned in HL
-		exx				;to second register set!
-		ld	h,d
-		ld	l,e             	;initial length to 1
-		ld	b,e			;bitcount to 1
-
-;determine number of bits used to encode value
-get_gamma_value_size:
-		exx
-		GET_BIT_FROM_BITSTREAM			;get more bits
-		exx
-		jr	nc,get_gamma_value_size_end	;if bit not set, bitlength of remaining is known
-		inc	b				;increase bitcount
-		jp	get_gamma_value_size		;repeat...
-
-get_gamma_value_bits:
-		exx
-		GET_BIT_FROM_BITSTREAM			;get next bit of value from bitstream
-		exx
-		
-		adc	hl,hl				;insert new bit in HL
-get_gamma_value_size_end:
-		djnz	get_gamma_value_bits		;repeat if more bits to go
-
-get_gamma_value_end:
-		inc	hl			;length was stored as length-2 so correct this
-		exx				;back to normal register set
 	
-		ret	c
-		
-		;HL' = length
-		push	hl			;address compressed data on stack
+	
+		; calculate length value
+		exx  				; to second register set!
+		ld 	h,d
+		ld 	l,e             	; initial length to 1
+get_gamma_value:
+	  	GET_BIT_FROM_BITSTREAM_EXX   	; get more bits
+	  	jr 	nc,get_gamma_value_end
+	  	GET_BIT_FROM_BITSTREAM_EXX   	; get next bit of value from bitstream
+	  	rl	l
+	  	rl	h
+	  	jp 	nc,get_gamma_value  	; repeat unless overflow occurred (=end of block marker)
+	  	exx	
+	  	ret
+  	
+get_gamma_value_end:  
+	  	inc 	hl  			; length was stored as length-2 so correct this  	
+	  	exx   				; back to normal register set
 
+		push	hl			; address compressed data on stack
+	
 		exx
-		push	hl			;match length on stack
+		push	hl			; match length on stack
 		exx
-
+	
 		ld	h,d
-		ld	l,e			;destination address in HL...
-		sbc	hl,bc			;calculate source address
-
-		pop	bc			;match length from stack
-
-		ldir				;transfer data
-
-		pop	hl			;address compressed data back from stack
-
-		GET_BIT_FROM_BITSTREAM		;get compression type bit
-		jp	c,output_compressed	;if set, we got lz77 compression
-		ldi				;copy byte from compressed data to destination (literal byte)
-		GET_BIT_FROM_BITSTREAM		;get compression type bit
-		jp	c,output_compressed	;if set, we got lz77 compression
-		ldi				;copy byte from compressed data to destination (literal byte)
-
+		ld	l,e			; destination address in HL...
+		sbc	hl,bc			; calculate source address
+	
+		pop	bc			; match length from stack
+	
+		ldir				; transfer data
+	
+		pop	hl			; address compressed data back from stack
+	
+		IFDEF	BITBUSTER_OPTIMIZE_SPEED
+		GET_BIT_FROM_BITSTREAM		; get compression type bit
+		jp	c,output_compressed	; if set, we got lz77 compression
+		ldi				; copy byte from compressed data to destination (literal byte)
+		GET_BIT_FROM_BITSTREAM		; get compression type bit
+		jp	c,output_compressed	; if set, we got lz77 compression
+		ldi				; copy byte from compressed data to destination (literal byte)
+		ENDIF
+	
 		jp	depack_loop
+	
+	
+		IFNDEF	BITBUSTER_OPTIMIZE_SPEED
+
+; get a bit from the bitstream
+; carry if bit is set, nocarry if bit is clear
+; must be entered with regular registerset switched in!
+get_bit_from_bitstream:
+		add	a,a		; shift out new bit
+		ret	nz		; if remaining value isn't zere, we're done
+	                                  
+		ld	a,(hl)		; get 8 bits from bitstream
+		inc	hl		; increase source data address
+	
+		rla                     ;(bit 0 will be set!!!!)
+		ret
+
+; get a bit from the bitstream
+; carry if bit is set, nocarry if bit is clear
+; must be entered with normal registerset switched in!
+get_bit_from_bitstream_exx
+		add	a,a		; shift out new bit
+		ret	nz		; if remaining value isn't zere, we're done
+	
+		exx
+		ld	a,(hl)		; get 8 bits from bitstream
+		inc	hl		; increase source data address
+		exx
 		
+		rla                     ; (bit 0 will be set!!!!)
+		ret 
+		ENDIF			; IFNDEF BITBUSTER_OPTIMIZE_SPEED  
+		
+		
+block_count:	db	0		; number of blocks to decompress
+block_start:	dw	0               ; starting address of next block
+	
+	
 		MODULE
+		
