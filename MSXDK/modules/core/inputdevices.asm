@@ -22,9 +22,10 @@
 ;	The inputdevices module contains routines related to several input devices, like
 ;	the keyboard, joysticks etc.
 ;
-; COPYRIGHT:
+; COPYRIGHT & CREDITS:
 ;	This module has been released by Eli-Jean Leyssens under the MIT License;
 ;	please see the top of the source file(s) for the full copyright statement.
+;	Thanks go to Arjan Bakker for the joystick routine.
 
 ;****if* inputdevices/init_inputdevices
 ;
@@ -96,5 +97,47 @@
 		and	c
 		ret
 
-		MODULE
+; FUNCTION:	read_joystick
+;	Read the current status of a joystick.
+;
+; ENTRY:
+;	A - Joystick selector ( 0 = joystick 1, 1 = joystick 2)
+;	DI - or interrupt handler that doesn't corrupt the PSG ports
+;
+; EXIT:
+;	A - Joystick status: a bit value of 0 = off, 1 = on
+;	+---+-------------+
+;	|bit| meaning     |
+;	+---+-------------+
+;	| 0 | up          |
+;	| 1 | down	  |
+;	| 2 | left        |
+;	| 3 | right       |
+;	| 4 | trigger A   |
+;	| 5 | trigger B   |
+;	+---+-------------+
+;
+; MODIFIES:
+;	#None# XXX should mention PSG... here
+;
+@read_joystick:	EXPORT	read_joystick
+		push	bc
+		and	%00000001       ; just keep joystick select bit
+		rrca
+		rrca			; move to joystick select bit of PSG R#15
+		ld	b,a	
 		
+		ld	a,15
+		out	(PSGREG),a
+		in	a,(PSGRDT)
+		and	%10111111	; clear joystick select bit
+		or	b		; set joystick select bit
+		out	(PSGWDT),a	; select joystick		
+			
+		ld	a,14
+		out	(PSGREG),a      ; select joystick status register
+		in	a,(PSGRDT)	; read joystick status
+		pop	bc
+		ret
+		
+		MODULE
