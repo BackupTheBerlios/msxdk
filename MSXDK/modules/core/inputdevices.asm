@@ -115,6 +115,7 @@
 ;	| 3 | right       |
 ;	| 4 | trigger A   |
 ;	| 5 | trigger B   |
+;	|6-7| undefined   |
 ;	+---+-------------+
 ;
 ; MODIFIES:
@@ -137,6 +138,7 @@
 		ld	a,14
 		out	(PSGREG),a      ; select joystick status register
 		in	a,(PSGRDT)	; read joystick status
+		cpl			; invert (silly PSG)
 		pop	bc
 		ret
 		
