@@ -121,6 +121,12 @@ if test ! -f NaturalDocs/patchedForMSXDK; then
 	patch -p0 < patchNaturalDocs || exit 1
 fi
 
-perl NaturalDocs/NaturalDocs -i modules -o FramedHTML FramedHTML -p NaturalDocs/ProjectMSXDK -r
+if test ! -d doc; then
+	echo "Creating doc directory ..."
+	mkdir doc || exit 1
+fi
+
+perl NaturalDocs/NaturalDocs -i modules -o FramedHTML doc -p NaturalDocs/ProjectMSXDK -r
 
 exit 0
+
