@@ -49,8 +49,8 @@ static string g_program_name = "";	// variable to hold the program name
 static int max_depth = 12;              // maximum search depth for compression
 static string extension = "pck";        // default compressed file extension
 static bool g_syntax = false;           // (don't) show the program syntax
-static bool g_output_names = false;		// forces every second filename to be taken as the output filename
-
+static bool g_output_names = false;	// forces every second filename to be taken as the output filename
+static bool g_append_extension = false;	// (don't) append extension to output filename
 
 unsigned char *data;			// data to crunch
 int length;				// length of data to crunch
@@ -295,9 +295,7 @@ int position = 0;
 int offset;
 ifstream infile;
 int output_length;
-	
-	cout << "Writing to " << output_name << "..." << endl;
-	
+		
 	// open file for binary output
 	outfile.open( output_name.c_str() , ios::binary | ios::out );
 
@@ -736,6 +734,7 @@ void print_syntax( ostream & stream = cerr )
 	stream << " <filename> [<filename>...]" << endl;
         stream << endl;
 	stream << "  -h             Print this information" << endl;
+	stream << "  -a             Append extension instead of replacing it" << endl;
 	stream << "  -o             Forces every second filename to be treated as the Output filename" << endl;
 	stream << "                 for the filename preceding it" << endl;
 	stream << "  -s <strength>  Set the compression strength (2...16)" << endl;
@@ -754,10 +753,14 @@ OptionParser parser( argc, argv );
 int option;
 	
 	// get next option
-	while ( ( option = parser.GetOption( "hos:e:" ) ) != -1 )
+	while ( ( option = parser.GetOption( "ahos:e:" ) ) != -1 )
 	{
 		switch ( option )
 		{
+			case 'a':	// append extension
+				g_append_extension = true;
+				break;
+				
 			case 'h':	// print program syntax
 			        g_syntax = true;
 				break;
@@ -820,17 +823,24 @@ bool process_arguments( int argc, char ** argv, int & arg_index )
 			// compress all files
 			while ( arg_index < argc )
 			{
+				// get name for outputfile
 				string output_name = argv[ arg_index + ( g_output_names ? 1 : 0)];
+				
+				// if outputfiles are not specified, extension has to be added
 				if ( !g_output_names)
 				{
-					int ext_index = output_name.rfind( "." );	// find rightmost . in name
+					// find rightmost . in name
+					int ext_index = output_name.rfind( "." );	
+					
 					// if no extension found
-					if ( ext_index < 0 )
+					if ( ext_index < 0 || g_append_extension )
 						output_name = output_name + "." + extension;	// add extension
 					else
 						output_name = output_name.substr( 0, ext_index + 1 ) + extension;	// else replace extension
-				}				
+				}
+								
 				compress( argv[ arg_index], output_name );
+				
 				arg_index += ( g_output_names ? 2 : 1);
 			}
 		}
@@ -895,7 +905,11 @@ string program_name = argv[ 0 ];
 		finish = clock();    
 		
 		if ( ret )
-			cout << "Time elapsed:" << (double)( finish - start ) / CLOCKS_PER_SEC << endl;
+		{
+			cout << "Time elapsed: ";
+			cout << (double)( finish - start ) / CLOCKS_PER_SEC;
+			cout << " seconds" << endl;
+		}
 	}
 	
 	return ret ? 0 : 1;
