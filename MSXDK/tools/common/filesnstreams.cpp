@@ -27,7 +27,7 @@ using std::cerr;
 using std::endl;
 using std::fstream;
 using std::ios;
-#include "loadsave_file.h"
+#include "filesnstreams.h"
 using std::vector;
 
 bool load_file( const char * path, vector<char> & data)
@@ -89,3 +89,27 @@ bool save_file( const char * path, char * data, size_t size)
 	}
 	return ret;
 }
+
+void stream_write_littleendian( std::ofstream & stream, const int bytes, const long value)
+{
+	char	buf[ 4];
+	
+	for ( int i = 0 ; i < bytes; ++i)
+	{
+		buf[ i] = (char)(value >> ( i << 3));
+	}
+	stream.write( buf, bytes);
+}
+
+void stream_read_littleendian( std::ifstream & stream, const int bytes, long & value)
+{
+	char	buf[ 4];
+	stream.read( buf, bytes);
+	value = 0;
+	for ( int i = 0 ; i < ( bytes - 1); ++i)
+	{
+		value = value | ( ((long)((unsigned char)buf[i])) << (i << 3));
+	}
+	value = value | ( ((long)buf[(bytes-1)]) << ((bytes-1) << 3));
+}
+

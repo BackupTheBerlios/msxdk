@@ -17,8 +17,16 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+#ifndef _FILESNSTREAMS_H_
+#define _FILESNSTREAMS_H_
+
 #include <vector>
 
 bool load_file( const char * path, std::vector<char> & data);
 bool save_file( const char * path, char * data, size_t size);
 
+#include <fstream>
+void stream_write_littleendian( std::ofstream & stream, const int bytes, const long value);
+void stream_read_littleendian( std::ifstream & stream, const int bytes, long & value);
+
+#endif // _FILESNSTREAMS_H_

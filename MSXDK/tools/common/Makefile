@@ -1,7 +1,7 @@
 
 TARGETS	 = libcommon.a
-OBJECTS  = loadsave_file.o OptionParser.o
-HEADERS	 = loadsave_file.h OptionParser.h
+OBJECTS  = filesnstreams.o OptionParser.o
+HEADERS	 = filesnstreams.h OptionParser.h
 
 INCDIR   = ../include
 LIBDIR   = ../lib
