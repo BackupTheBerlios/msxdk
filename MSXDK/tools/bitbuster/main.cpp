@@ -36,8 +36,6 @@ using std::pair;
 #include <time.h>
 
 
-short *rle_lengths;
-
 ofstream outfile;
 int bitstream_position;
 unsigned char bitdata;
@@ -72,6 +70,15 @@ typedef struct occur
 
 
 occur *occur_ptr[ 65536 ];
+
+
+occur occur_pool[ 65536 * 4] ;
+int occur_pointer = 0;
+
+occur *get_occur()
+{
+	return &occur_pool[ occur_pointer++ ];
+}
 
 
 //return length of opened file
@@ -259,6 +266,8 @@ int bit_mask = 1;
 }
 
 
+
+
 int writefile( char *name )
 {
 int position = 0;
@@ -273,47 +282,34 @@ int offset;
 
 	while (position < length)
 	{
-		if ( rle_lengths[ position ] > 1 &&
-			 rle_lengths[ position ] >= match_results[ position ].first )
+		
+		if ( match_results[ position ].first > 1 )
 		{
+			offset = position - match_results[ position ].second - 1;
+
 			write_bit( 1 );
 
-			write_byte( 0 );
-
-			write_elias_gamma( rle_lengths[ position ] - 2 );
-
-			position += rle_lengths[ position ];
-		}
-		else
-		{
-			if ( match_results[position].first > 1 )
+			if ( offset > 127 )
 			{
-				offset = position - match_results[ position ].second - 1;
-
-				write_bit( 1 );
-
-				if ( offset > 127 )
-				{
-					write_byte( offset | 128 );
-					write_bit( offset & 1024 );
-					write_bit( offset & 512 );
-					write_bit( offset & 256 );
-					write_bit( offset & 128 );
-				}
-				else
-				{
-					write_byte( offset & 127 );
-				}
-
-				write_elias_gamma( match_results[ position ].first - 2 );
-
-				position += match_results[ position ].first;
+				write_byte( offset | 128 );
+				write_bit( offset & 1024 );
+				write_bit( offset & 512 );
+				write_bit( offset & 256 );
+				write_bit( offset & 128 );
 			}
 			else
 			{
-				write_bit( 0 );
-				write_byte( data[ position++ ] );
+				write_byte( offset & 127 );
 			}
+
+			write_elias_gamma( match_results[ position ].first - 2 );
+
+			position += match_results[ position ].first;
+		}
+		else
+		{
+			write_bit( 0 );
+			write_byte( data[ position++ ] );
 		}
 	}
 
@@ -337,6 +333,7 @@ int offset;
 	return 0;
 }
 
+
 inline int get_match_length( int new_data, int previous_data )
 {
 int match_length = 2;
@@ -345,18 +342,6 @@ int match_length = 2;
 		match_length++;
 
 	return match_length;
-}
-
-
-//returns the length of a string
-inline int get_rle_length( int position, int value )
-{
-int rle_length = 1;
-
-	while ( data[++position] == value && (position < length-1))
-		rle_length++;
-
-	return rle_length;
 }
 
 
@@ -395,150 +380,227 @@ occur *cur_occur;
 			cur_occur = cur_occur->previous;
 		}
 		else
-			cur_occur = NULL;
+			break;
 	}
 
 	return best_result;
 }
 
 
+
 void find_matches()
 {
 int pair;
 occur *cur_occur;
-int rle_length = 0;
+match_result result;
 int position = 0;
-int temp_rle_length = 0;
 
 	//loop through all data, except last element
 	//since it can't be the start of a value pair
 
-	while ( position < length - 1)
+	while ( position < length - 1 )
 	{
-		//get rle length of current string
-		rle_length = get_rle_length( position, data[position] );
+		match_result best_result = get_best_match( position );
 
-		//calc pair number
 		pair = get_pair( position );
 
-		// rle length of 2 or more characters saves space!
-		if ( rle_length > 2)
-		{	
-			rle_lengths[ position + 1] = rle_length - 1;
+		cur_occur = get_occur();	//new occur();
+		cur_occur->previous = occur_ptr[ pair ];
+		cur_occur->position = position;
 
-			cur_occur = new occur();
-			cur_occur->previous = occur_ptr[ pair ];
-			cur_occur->position = position;
-	
-			occur_ptr[ pair ] = cur_occur;
+		occur_ptr[ pair ] = cur_occur;
 
-			cur_occur = new occur();
-			cur_occur->previous = occur_ptr[ pair ];
-			cur_occur->position = position + rle_length - 2;
+		if ( best_result.first > 1 )
+		{		
 
-			cur_occur = occur_ptr[ get_pair( position + rle_length ) ];
+			result = best_result;
 
-			match_result best_result;
-
-			best_result.first = 0;
-			best_result.second = 0;
-
-			int match_length;
-			int match_start = 0;
-			//cout << "RLE: " << rle_length << endl;
-
-			while ( cur_occur != NULL)
-			{
-				if ( cur_occur->position > position + rle_length - 0x07ff )
-				{
-					if ( data[ cur_occur->position - 1 ] == data[ position ] )
-					{
-						match_length = get_match_length( cur_occur->position + 2,
-															position + rle_length + 2 );
-
-						int prev_rle_length = 1;
-						int prev_rle_position = cur_occur->position - 2;
-
-						while ( prev_rle_position >= 0 &&
-							data[ prev_rle_position ] == data[ position ] )
-						{
-							prev_rle_position--;
-							prev_rle_length++;
-						}
-
-				//		cout << "PREV:" << prev_rle_length << endl;
-
-						if ( match_length + prev_rle_length > best_result.first )
-						{
-							if ( prev_rle_length > rle_length )
-							{
-								best_result.first = rle_length + match_length;
-								best_result.second = cur_occur->position - rle_length;
-								match_start = position;
-							}
-							else
-							{
-								best_result.first = prev_rle_length + match_length;
-								best_result.second = cur_occur->position - prev_rle_length;
-								match_start = position + rle_length - prev_rle_length;
-
-							//	cout << "START" << match_start << endl;
-						//		cout << "LENG:" << match_length << endl;
-							}
-						}
-					}
-
-					cur_occur = cur_occur->previous;
-				}
-				else
-					cur_occur = NULL;	//out of range
+			for (int i = position; i < position + best_result.first; i++)
+			{			
+				match_results[ i ].first = result.first--;		//match length
+				match_results[ i ].second = result.second++;	//match position
 			}
 
-			if ( best_result.first > 3 )
+			if ( best_result.second == ( position - 1 ) )
 			{
-				match_results[ match_start ].first = best_result.first;
-				match_results[ match_start ].second = best_result.second;
+				if ( best_result.first > 8 )
+					position += best_result.first - 8;
 			}
+		}
+		
 
-			//skip over rle sequence
-			position = position + rle_length;
+		position++;
+
+	}
+
+}
+
+
+class match_link
+{
+public:
+	int cost;
+	int position;
+	match_link *previous;
+	match_link *literal;
+	match_link *match;
+
+	match_link();
+	~match_link();
+};
+
+
+match_link::match_link()
+{
+	literal = NULL;
+	match = NULL;
+}
+
+
+match_link::~match_link()
+{
+	if ( literal != NULL )
+		delete literal;
+
+	if ( match != NULL )
+		delete match;
+}
+
+
+int depth;
+match_link *best;
+
+
+void find_best( match_link *current )
+{
+	if ( ++depth == 8 || current->position == length )
+	{
+		if ( current->position > best->position )
+		{
+			best = current;
 		}
 		else
 		{
-			match_result best_result = get_best_match( position );
-
-			if ( best_result.first > 1 )
+			if ( current->position == best->position )
 			{
-				for (int j = position; j < position + best_result.first; j++)
+				if ( current->cost < best->cost )
 				{
-					pair = get_pair( j );
-
-					cur_occur = new occur();
-					cur_occur->previous = occur_ptr[ pair ];
-					cur_occur->position = j;
-
-					occur_ptr[ pair ] = cur_occur;
+					best = current;
 				}
+			}
+		}
+	}
+	else
+	{
+		match_link *literal = new match_link();
 
-				match_results[ position ].first = best_result.first;		//match length
-				match_results[ position ].second = best_result.second;	//match position
+		literal->cost = current->cost + 9;
+		literal->position = current->position + 1;
+		literal->previous = current;
+	
+		current->literal = literal;
 
-				position = position + best_result.first;			
+		find_best( literal );
+
+		if ( match_results[ current->position ].first > 1 )
+		{
+			match_link *match = new match_link();
+
+			if ( current->position - match_results[ current->position ].second > 128 )
+				match->cost = current->cost + 1 + 12;
+			else
+				match->cost = current->cost + 1 + 8;
+
+			match->cost += get_gamma_size( match_results[ current->position ].first - 2);
+
+			match->previous = current;
+
+			match->position = current->position + match_results[ current->position ].first;
+
+			current->match = match;
+
+			find_best( match ) ;
+		}
+	}
+
+	depth--;
+}
+
+
+void strip_matches()
+{
+match_link start;
+int position = 0;
+
+	while( position < length )
+	{
+		start.cost = 0;
+		start.position = position;
+		start.previous = NULL;
+
+		depth = 0;
+
+		best = &start;
+
+		find_best( &start );
+
+		match_link *current = best;
+
+		while ( current->previous != NULL )
+		{
+			if ( current->previous->literal == current )
+			{
+				current = current->previous;
+
+				match_results[ current->position ].first = 0;
+
+				delete current->match;
+				current->match = NULL;
 			}
 			else
 			{
-				cur_occur = new occur();
-				cur_occur->previous = occur_ptr[pair];
-				cur_occur->position = position;
+				current = current->previous;
 
-				occur_ptr[pair] = cur_occur;
-
-				position++;
+				delete current->literal;
+				current->literal = NULL;
 			}
+
 		}
 
-	//	cout << "NEXT:" << endl;
+		position = best->position;
 	}
+}
+
+
+
+
+void compress( char *file )
+{
+	//read some testdata
+	readfile( file );
+
+	//mark each value pair as non-occurring yet
+	for ( int i = 0; i < 256 * 256; i++)
+		occur_ptr[ i ] = NULL;
+
+	match_results = new match_result[ length ];
+
+	for ( int j = 0; j < length; j++)
+	{
+		match_results[ j ].first = -1;
+		match_results[ j ].second = -1;
+	}
+
+	//find matches for the whole file
+	find_matches();
+
+	strip_matches();
+
+	writefile( file );
+
+	delete [] data;
+	delete [] match_results;
+	
 }
 
 
@@ -549,44 +611,8 @@ clock_t start,finish;
 	if (argc > 1)
 	{
 		start = clock();
-
-		//read some testdata
-		readfile( argv[1] );
-
-		//mark each value pair as non-occurring yet
-		for ( int i = 0; i < 256 * 256; i++)
-			occur_ptr[i] = NULL;
-
-		match_results = new match_result[length];
-		rle_lengths = new short[length];
-
-		for ( int j = 0; j < length; j++)
-		{
-			rle_lengths[j] = -1;
-			match_results[j].first = -1;
-			match_results[j].second = -1;
-		}
-
-		//find matches for the whole file
-		find_matches();
-
-		writefile( argv[1] );
-/*
-		for ( int k = 0; k < length; k++)
-			cout << (int)match_results[k].second << " ";
-		cout << endl;
-
-		for ( int l = 0; l < length; l++)
-			cout << (int)match_results[l].first << " ";
-		cout << endl;
-
-		for ( int m = 0; m < length; m++)
-			cout << (int)rle_lengths[m] << " ";
-		cout << endl;
-*/
-		delete data;
-		delete [] match_results;
-		delete [] rle_lengths;
+       
+		compress( argv[1] );
 
 		finish = clock();
 
