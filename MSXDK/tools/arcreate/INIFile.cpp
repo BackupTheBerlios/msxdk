@@ -18,6 +18,15 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <stdio.h>
+#include <iostream>
+using std::istream;
+using std::ostream;
+using std::ifstream;
+using std::ofstream;
+using std::cout;
+using std::cerr;
+using std::endl;
+using std::ios;
 #include "INIFile.h"
 #include "loadsave_file.h"
 
@@ -81,7 +90,7 @@ bool INIFile::load( const char * filename)
 					}
 					else
 					{
-						fprintf( stderr, "Invalid section header: %s\n", line);
+						cerr << "Invalid section header: " << line << endl;
 						ret = false;
 					}
 				}
@@ -131,20 +140,20 @@ bool INIFile::load( const char * filename)
 							}
 							else
 							{
-								fprintf( stderr, "Closing quote failing in key=value line: %s\n", line);
+								cerr << "Closing quote failing in key=value line: " << line << endl;
 								ret = false;
 							}
 						}
 					}
 					else
 					{
-						fprintf( stderr, "Invalid key=value line: %s\n", line);
+						cerr << "Invalid key=value line: " << line << endl;
 						ret = false;
 					}
 				}
 				else
 				{
-					fprintf( stderr, "Key=value line outside a section: %s\n", line);
+					cerr << "Key=value line outside a section: " << line << endl;
 					ret = false;
 				}			
 				break;

@@ -25,6 +25,15 @@
 #include "INIFile.h"
 #include "loadsave_file.h"
 #include <OptionParser.h>
+#include <iostream>
+using std::istream;
+using std::ostream;
+using std::ifstream;
+using std::ofstream;
+using std::cout;
+using std::cerr;
+using std::endl;
+using std::ios;
 
 using std::vector;
 using std::string;
@@ -86,12 +95,12 @@ bool scan_chunksize( const char * p, long & chunksize)
     }
     if ( *p && (*p != '|'))
     {
-        fprintf( stderr, "Incorrect chunksize ");
+        cerr << "Incorrect chunksize ";
         for ( ; *base && ( *base != '|'); ++base)
         {
-            fprintf( stderr, "%c", *base);
+            cerr << *base;
         }
-        fprintf( stderr, "\n");
+        cerr << endl;
         return false;
     }
     return true;
@@ -145,7 +154,7 @@ bool arcreate( const char * iniarg)
   		}
   		else
   		{
-  			fprintf( stderr, "Out of memory\n");
+  			cerr << "Out of memory" << endl;
   			return false;
   		}
   	}
@@ -154,13 +163,13 @@ bool arcreate( const char * iniarg)
   	string	asmfile = unix_seperators( ifil.get_value( "CONFIGURATION", "ASMFILE"));
   	if ( strlen( asmfile.c_str()) == 0)
   	{
-        fprintf( stderr, "ASMFILE key in the CONFIGURATION section not found or empty\n");
+        cerr << "ASMFILE key in the CONFIGURATION section not found or empty" << endl;
         return false;
   	} 
     FILE    * fhgen = fopen( asmfile.c_str(), "wb");
     if ( fhgen == NULL)
     {
-        fprintf( stderr, "Failed to create ASMFILE %s\n", asmfile.c_str());
+        cerr << "Failed to create ASMFILE " << asmfile << endl;
         return false;
     }
 
@@ -220,7 +229,7 @@ bool arcreate( const char * iniarg)
             {
             	if ( section_it->entries.size() == 0)
                 {
-                    fprintf( stderr, "Can't create empty archives. Archive %s is empty\n", sectionname);
+                    cerr << "Can't create empty archives. Archive " << sectionname << " is empty" << endl;
                     return false;
                 }
                 char archivename[ MAX_PATH];
@@ -245,7 +254,7 @@ bool arcreate( const char * iniarg)
                     }
                     if ( storetype == STORETYPE_NONE)
                     {
-                        fprintf( stderr, "Unrecognized storetype in %s = %s\n", key, value);
+                        cerr << "Unrecognized storetype in " << key << " = " << value << endl;
                         return false;
                     }                
                     strcpy( path, unix_seperators(value).c_str());
@@ -298,7 +307,7 @@ bool arcreate( const char * iniarg)
                                 rests++;
                                 break;
                             default:
-                                fprintf( stderr, "Unrecognized option %c in %s = %s\n", *p, key, value);
+                                cerr << "Unrecognized option " << *p << " in " << key << " = " << value << endl;
                                 return false;
                             }
                             for ( ; *p && (*p != '|'); p++);
@@ -308,21 +317,21 @@ bool arcreate( const char * iniarg)
                         {
                             if ( multis > 1)
                             {
-                                fprintf( stderr, "More than one Multiple detected in %s = %s\n", key, value);
+                                cerr << "More than one Multiple detected in " << key << " = " << value << endl;
                                 return false;
                             }
                             else
                             {
                                 if ( rests > 1)
                                 {
-                                    fprintf( stderr, "More than one Rest detected in %s = %s\n", key, value);
+                                    cerr << "More than one Rest detected in " << key << " = " << value << endl;
                                     return false;
                                 }
                                 else
                                 {
                                     if ( multis && rests)
                                     {
-                                        fprintf( stderr, "Multiple and a Rest detected in %s = %s\n", key, value);
+                                        cerr << "Multiple and a Rest detected in " << key << " = " << value << endl;
                                         return false;
                                     }
                                     else
@@ -334,7 +343,7 @@ bool arcreate( const char * iniarg)
                                             (chunktypes.back() != CHUNKTYPE_REST)
                                             )
                                         {
-                                            fprintf( stderr, "Multiple or Rest only allowed as the last chunk type. Error in %s = %s\n", key, value);
+                                            cerr << "Multiple or Rest only allowed as the last chunk type. Error in " << key << " = " << value << endl;
                                             return false;
                                         }
                                     }
@@ -392,7 +401,7 @@ bool arcreate( const char * iniarg)
                                 {
                                     if ( curchunksize > ( filesize - offset))
                                     {
-                                        fprintf( stderr, "Can't %s %ld bytes: only %ld bytes left in file\n", chunktypes[ chunktype_index] == CHUNKTYPE_SKIP ? "skip" : "read", curchunksize, filesize - offset);
+                                        cerr << "Can't " << (chunktypes[ chunktype_index] == CHUNKTYPE_SKIP ? "skip" : "read") << " " << curchunksize << " bytes: only " << filesize - offset << " bytes left in file" << endl;
                                         return false;
                                     }
                                 }
@@ -403,7 +412,7 @@ bool arcreate( const char * iniarg)
                             }
                             if ( chunktypes[ chunktype_index] != CHUNKTYPE_SKIP)
                             {
-                                char filetoadd[MAX_PATH+1024] = "$$ARC$$.TMP";
+                                char filetoadd[MAX_PATH+1024] = "x_ARC_x.TMP";
                                 if ( !save_file( filetoadd, &filedata[offset], curchunksize))
                                 {
                                     return false;
@@ -414,7 +423,7 @@ bool arcreate( const char * iniarg)
                                     sprintf( packedfile, "packed/%s.PCK%d", filename, chunks);
                                     if ( strlen( packer.c_str()) == 0)
                                     {
-                                        fprintf( stderr, "PACKED storetype requested, but the PACKER key in the CONFIGURATION section was not found or was empty\n");
+                                        cerr << "PACKED storetype requested, but the PACKER key in the CONFIGURATION section was not found or was empty" << endl;
                                         return false;
                                     }
                                     // Do NOT pack if the chunk already exists and its timestamps
@@ -431,10 +440,10 @@ bool arcreate( const char * iniarg)
                                         )
                                     {
                                         char cmdline[ 3*MAX_PATH];
-                                        sprintf( cmdline, "%s -v %s %s", packer.c_str(), filetoadd, packedfile);
+                                        sprintf( cmdline, "%s %s %s", packer.c_str(), filetoadd, packedfile);	
                                         if ( system( cmdline) != 0)
                                         {
-                                            fprintf( stderr, "The specified packer returned a non-zero value (interpreted by %s as an error)\n", g_program_name.c_str());
+                                            cerr << "The specified packer returned a non-zero value (interpreted by " << g_program_name << " as an error" << endl;
                                             return false;
                                         }
 
@@ -479,14 +488,14 @@ bool arcreate( const char * iniarg)
     }
     fprintf( fhgen, "\r\nTOC_AREA:\tds\t%d\r\n\t\tEXPORT\tTOC_AREA\r\n", maxtocsize);
     fclose( fhgen);
-    remove( "$$ARC$$.TMP");
+    remove( "x_ARC_x.TMP");
     fhgen = NULL;
     
     return true;
 }	
 void print_try( void)
 {
-	fprintf( stderr, "Try '%s -h' for more information.\n", g_program_name.c_str());
+	cerr << "Try '" << g_program_name << " -h' for more information." << endl;
 }
 
 void print_syntax( FILE * fhsyntax)
@@ -519,7 +528,7 @@ bool process_options( int argc, char ** argv, int & arg_index)
 			g_force_repack = true;
 			break;
 		default:
-			fprintf( stderr, "Unrecognized option: -%c\n", (char)parser.Option());
+			cerr << "Unrecognized option: -%c" << (char)parser.Option() << endl;
 			ret = false;
 			break;
 		}
@@ -540,7 +549,7 @@ bool process_arguments( int argc, char ** argv, int & arg_index)
 	{
 		if ( (arg_index + 1) < argc)
 		{
-			fprintf( stderr, "Only one INI-filename allowed.\n");
+			cerr << "Only one INI-filename allowed." << endl;
 			ret = false;
 		}
 	}
@@ -548,7 +557,7 @@ bool process_arguments( int argc, char ** argv, int & arg_index)
 	{
 		if ( !g_help)
 		{
-			fprintf( stderr, "Missing INI-filename.\n");
+			cerr << "Missing INI-filename." << endl;
 			ret = false;
 		}
 	}

@@ -18,6 +18,15 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <stdio.h>
+#include <iostream>
+using std::istream;
+using std::ostream;
+using std::ifstream;
+using std::ofstream;
+using std::cout;
+using std::cerr;
+using std::endl;
+using std::ios;
 #include "Archive.h"
 #include "loadsave_file.h"
 
@@ -42,7 +51,7 @@ bool Archive::create( const char * path)
     m_fh = fopen( path, "wb");
     if ( m_fh == NULL)
     {
-        fprintf( stderr, "Failed to create archive %s\n", path);
+        cerr << "Failed to create archive " << path << endl;
         return false;
     }
     strcpy( m_arcpath, path);
@@ -87,7 +96,7 @@ bool Archive::dump( void)
     }
     if ( (int)fwrite( info, 1, 2 + tocsize, m_fh) != (2 + tocsize))
     {
-        fprintf( stderr, "Failed to write all header bytes to archive file %s\n", m_arcpath);
+        cerr << "Failed to write all header bytes to archive file " << m_arcpath << endl;
         return false;
     }
     for ( int i = 0 ; i < filescount; ++i)
@@ -100,14 +109,14 @@ bool Archive::dump( void)
             chunkinfo[ 1] = (char)((m_data[i][j].size() >> 8) & 0xff);
             if ( fwrite( chunkinfo, 1, 2, m_fh) != 2)
             {
-                fprintf( stderr, "Failed to write all chunkheader bytes to archive file %s\n", m_arcpath);
+                cerr << "Failed to write all chunkheader bytes to archive file " << m_arcpath << endl;
                 return false;
             }
             else
             {
                 if ( fwrite( &m_data[i][j][0], 1, m_data[i][j].size(), m_fh) != m_data[i][j].size())
                 {
-                    fprintf( stderr, "Failed to write all chunkdata bytes to archive file %s\n", m_arcpath);
+                    cerr << "Failed to write all chunkdata bytes to archive file " << m_arcpath << endl;
                     return false;
                 }
             }
