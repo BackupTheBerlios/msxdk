@@ -28,19 +28,30 @@ using std::filebuf;
 #include <iostream>
 using std::streambuf;
 using std::cout;
+using std::cerr;
 using std::endl;
 
 using std::pair;
-
+                
+#include <string>
+using std::string;
 
 #include <time.h>
 
 #include "OptionParser.h"
 
+
+
+
+static string g_program_name = "";
+static int max_depth = 12;
+static string extension = "pck";
+
 ofstream outfile;
 int bitstream_position;
 unsigned char bitdata;
 int bitcount;
+
 
 
 unsigned char *data;	//data to crunch
@@ -111,11 +122,11 @@ int length;
 
 // read a file specified by the name
 // return file: -1 = failure, 0 = success
-int readfile( char *name )
+int readfile( string name )
 {
 ifstream infile;
 
-	infile.open( name, ios::binary | ios::in );
+	infile.open( name.c_str() , ios::binary | ios::in );
 
 	if ( infile.fail() )
 		return -1;
@@ -269,19 +280,28 @@ int bit_mask = 1;
 
 
 
-int writefile( char *name )
+int writefile( string name )
 {
 int position = 0;
 int offset;
-
-	outfile.open( "output.dat" , ios::binary | ios::out);
+int ext_index = name.rfind( "." );
+string output_name;
+	
+	if ( ext_index < 0 )
+		output_name = name + "." + extension;
+	else
+		output_name = name.substr( 0, ext_index + 1 ) + extension;
+	
+	cout << "Writing to " << output_name << "..." << endl;
+	
+	outfile.open( output_name.c_str() , ios::binary | ios::out );
 
 	buffer_position = 1;
 	bit_position = 0;
 
-	outfile.write( (char*)&length, 4);
+	outfile.write( (char*)&length, 4 );
 
-	while (position < length)
+	while ( position < length )
 	{
 		
 		if ( match_results[ position ].first > 1 )
@@ -316,16 +336,16 @@ int offset;
 
 	
 	//lz77/rle mark
-	write_bit(1);		
+	write_bit( 1 );		
 
 	//offset is zero -> end of file mark will be checked by RLE decompressing
-	write_byte(0);
+	write_byte( 0 );
 	
 	//set 16 bits
-	write_bits(1,16);
+	write_bits( 1, 16 );
 	
 	//gamma bit length terminator
-	write_bits(0,8);		
+	write_bits( 0, 8 );		
 
 	flush_rest();
 
@@ -339,7 +359,7 @@ inline int get_match_length( int new_data, int previous_data )
 {
 int match_length = 2;
 
-	while ( (new_data < length) && (data[new_data++] == data[previous_data++]) )
+	while ( ( new_data < length ) && ( data[ new_data++ ] == data[ previous_data++ ] ) )
 		match_length++;
 
 	return match_length;
@@ -458,7 +478,7 @@ int match_link_index;
 
 void find_best( match_link *current )
 {
-	if ( ++depth == 12 || current->position == length )
+	if ( ++depth == max_depth || current->position == length )
 	{
 		if ( current->position >= best->position )
 		{
@@ -553,8 +573,11 @@ int position = 0;
 
 
 
-void compress( char *file )
+void compress( string file )
 {
+ 	cout << "Compressing: " << file << "... ";
+ 	cout.flush();
+ 	
 	//read some testdata
 	readfile( file );
 
@@ -583,23 +606,112 @@ void compress( char *file )
 }
 
 
+void print_try( void)
+{
+	cerr << "Try '" << g_program_name << " -h' for more information." << endl;
+}
+
+
+bool process_options( int argc, char ** argv, int & arg_index )
+{
+	bool	ret = true;
+	
+	OptionParser	parser( argc, argv );
+	int		option;
+	
+	while ( ( option = parser.GetOption( "hs:e:" ) ) != -1 )
+	{
+		switch ( option )
+		{
+			case 'h':
+			
+				break;
+			case 's':
+				{
+					string strength = parser.Argument();	
+					
+					max_depth = atoi( strength.c_str() );
+					
+					if ( max_depth < 2 || max_depth > 16 )
+					{
+						cerr << "Incorrect compression strength value." << endl;
+						ret = false;
+					}	
+				}
+				break;
+				
+			case 'e':
+			        extension = parser.Argument();
+				break;
+				
+			default:
+				cerr << "Unrecognized option: -" << (char)parser.Option() << endl;
+				ret = false;
+				break;
+		}
+	}   
+	
+	arg_index = parser.Index();
+	
+	if ( !ret )
+	{
+		print_try();
+	}
+	
+	return ret;
+}
+
+bool process_arguments( int argc, char ** argv, int & arg_index )
+{
+	bool ret = true;
+		
+	if ( arg_index < argc )
+	{
+		while ( arg_index < argc )
+		        compress( argv[ arg_index++ ] );
+	}
+	else
+	{    
+		print_try();
+		ret = false;		
+	}	
+
+	return ret;	
+}
+		
 int main( int argc, char **argv )
 {
 clock_t start,finish;
 
-	if (argc > 1)
+bool ret = true;
+int arg_index = 1;
+
+string program_name = argv[ 0 ];
+
+#ifdef MINGW
+	// MinGW places the FULL executable path in argv[0], AAARGH!
+	size_t	program_name_pos = program_name.rfind( "\\" );
+	
+	if ( program_name_pos != string::npos )
 	{
-		start = clock();
-       
-		compress( argv[1] );
-
-		finish = clock();
-
-		cout << "Time elapsed:" << (double)(finish - start) / CLOCKS_PER_SEC << endl;
+		 program_name= program_name.substr( program_name_pos + 1 );
 	}
-	else
-		cout << "hmm" << endl;
+#endif
+	g_program_name = program_name;
 
-	return 0;
+        ret = process_options( argc, argv, arg_index );
+        
+	if ( ret)
+	{             
+		start = clock();   
+				
+		ret = process_arguments( argc, argv, arg_index );
+				
+		finish = clock();    
+		
+		cout << "Time elapsed:" << (double)( finish - start ) / CLOCKS_PER_SEC << endl;
+	}
+	
+	return ret ? 0 : 1;
 }
 
