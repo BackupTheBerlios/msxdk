@@ -6,7 +6,7 @@ else
 endif
 
 TARGETS	 = bitbuster$(EXTENSION)
-OBJECTS  = main.o 
+OBJECTS  = main.o compress.o encode.o
 
 INCDIR   = ../include
 BINDIR   = ../../bin
