@@ -36,7 +36,6 @@ using std::string;
 
 
 static string g_program_name = "";	// variable to hold the program name
-static int g_max_depth = 12;            // maximum search depth for compression
 static string g_extension = "pck";      // default compressed file extension
 static bool g_syntax = false;           // (don't) show the program syntax
 static bool g_output_names = false;	// forces every second filename to be taken as the output filename
@@ -57,15 +56,13 @@ void print_syntax( ostream & stream = cerr )
 {
 	stream << "Compress file(s)" << endl;
 	stream << endl;
-	stream << g_program_name << " [-hoa] [-s <strength>] [-e <extension>] [-b <size>]";
+	stream << g_program_name << " [-hoa] [-e <extension>] [-b <size>]";
 	stream << " <filename> [<filename>...]" << endl;
         stream << endl;
 	stream << "  -h             Print this information" << endl;
 	stream << "  -a             Append extension instead of replacing it" << endl;
 	stream << "  -o             Forces every second filename to be treated as the Output filename" << endl;
 	stream << "                 for the filename preceding it" << endl;
-	stream << "  -s <strength>  Set the compression strength (2...16)" << endl;
-	stream << "                 Default strength is 12" << endl;
 	stream << "  -e <extension> Set the extension used for compressed file(s)" << endl;
 	stream << "                 Default extension is pck" << endl;
 	stream << "  -b <size>      Set size of data to be compressed per chunk" << endl;
@@ -82,7 +79,7 @@ OptionParser parser( argc, argv );
 int option;
 	
 	// get next option
-	while ( ( option = parser.GetOption( "ahos:e:b:" ) ) != -1 )
+	while ( ( option = parser.GetOption( "ahoe:b:" ) ) != -1 )
 	{
 		switch ( option )
 		{
@@ -97,24 +94,7 @@ int option;
 			case 'o':	// every second filename is an output name
 					g_output_names = true;
 				break;
-				
-			case 's':       // set compression strength
-				{      	
-					// get compression strength
-					string strength = parser.Argument();	
-					
-					// convert to integer
-					g_max_depth = atoi( strength.c_str() );
-					
-					// print error if < 2 or > 16
-					if ( g_max_depth < 2 || g_max_depth > 16 )
-					{
-						cerr << "Incorrect compression strength value." << endl;
-						ret = false;
-					}	
-				}
-				break;
-				
+	
 			case 'e':	// set compressed file extension
 			        g_extension = parser.Argument();
 				break;
@@ -183,7 +163,7 @@ bool process_arguments( int argc, char ** argv, int & arg_index )
 						output_name = output_name.substr( 0, ext_index + 1 ) + g_extension;	// else replace extension
 				}
 								
-				compress( argv[ arg_index], output_name, g_max_depth, g_block_length );
+				compress( argv[ arg_index], output_name, g_block_length );
 				
 				arg_index += ( g_output_names ? 2 : 1);
 			}

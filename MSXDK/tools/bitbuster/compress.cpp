@@ -26,9 +26,6 @@
 unsigned char *data;		// data to crunch
 int length;			// length of data to crunch
 
-
-int max_depth;
-
 // matches for all positions in the data
 match_result *match_results;
 
@@ -242,137 +239,41 @@ int gamma_size = 1;
 }
 
 
-// find best path from current
-void find_best( match_link *current )
-{
- 	// if maximum search depth reached, or no more data
-	if ( ++depth == max_depth || current->position == length )
-	{         
-		// if current position is equal to or better than best position
-		if ( current->position >= best->position )
-		{
-			// if positions are equal
-			if ( current->position == best->position )
-			{
-				// only set best if cost of current is less
-				if ( current->cost < best->cost )
-					best = current;
-			}
-			else
-				best = current;	// new best end of path
-		} 
-		
-	}
-	else
-	{
-		// get new node for literal path
-		match_link *literal = &match_link_pool[ match_link_index++ ];
+int *cost;
 
-		// set cost to get here
-		literal->cost = current->cost + 9;
-		
-		// set position 
-		literal->position = current->position + 1;
-		
-		// set parent
-		literal->parent = current;
+
+void slash_matches()
+{
+int position = length - 1;
+
+	while ( position > 0 )
+	{
 	
-		// set literal node
-		current->literal = literal;
-
-		// search from literal node
-		find_best( literal );
-
-		// if match found
-		if ( match_results[ current->position ].first > 1 )
+		if ( match_results[ position ].first > 1 )
 		{
-			// get new node for literal match
-			match_link *match = &match_link_pool[ match_link_index++ ];
-
-			// set cost according to offset length
-			if ( current->position - match_results[ current->position ].second > 128 )
-				match->cost = current->cost + 1 + 13;
-			else
-				match->cost = current->cost + 1 + 8;
-
-			// add encoding size of length to total costs
-			match->cost += get_gamma_size( match_results[ current->position ].first - 2);
-
-			// set parent
-			match->parent = current;
-
-			// set position from match node
-			match->position = current->position + match_results[ current->position ].first;
-
-			// set match node
-			current->match = match;
-
-			// search from match node
-			find_best( match ) ;
-		}
-	}
-
-	// decrease search level
-	depth--;
-}
-
-
-// remove all matches that won't be encoded
-void strip_matches()
-{
-match_link start;
-int position = 0;
-
-	// loop while more matches to remove
-	while ( position < length )
-	{
-		// initialise starting point of tree
-		start.cost = 0;
-		start.position = position;
-		start.parent = NULL;
-		
-		// set search level to 0
-		depth = 0;
-
-		// start with first element of match_link pool
-		match_link_index = 0;
-
-		// set pointer to best path
-		best = &start;
-
-		// find best path
-		find_best( &start );
-
-		match_link *current = best;
-
-		// backtrack from end of tree
-		while ( current->parent != NULL )
-		{
-			// if literal path was taken
-			if ( current->parent->literal == current )
+			cost[ position ] = cost[ position + match_results[ position ].first ] +
+				( ( position - match_results[ position ].second ) > 128 ? 12 : 8 ) + 
+					get_gamma_size(	match_results[ position ].first - 2 );
+					
+			if ( cost[ position + 1 ] + 9 < cost[ position ] )
 			{
-				// go back to previous node
-				current = current->parent;
-
-				// remove match 
-				match_results[ current->position ].first = 0;
+				cost[ position ] = cost[ position + 1 ] + 9;
+				
+				match_results[ position ].first = 0;
 			}
-			else
-			{
-				// go back to previous node
-				current = current->parent;
-			}
-                                                           
 		}
+		else
+		{	
+			cost[ position ] = cost[ position + 1 ] + 9;		
+		}	   
+			
+		position--;
+	}	
 
-		// update position according to best position found
-		position = best->position;
-	}
 }
-
 
 // compress a file
-void compress( const string & file, const string & output_file, int p_max_depth, int block_length  )
+void compress( const string & file, const string & output_file, int block_length  )
 {
 int compressed_length = 0;
 int file_length;
@@ -381,8 +282,6 @@ ifstream infile;
 int block_count;
 int position;
 int remaining_length;
-
-	max_depth = p_max_depth;
 	 	
 	// open file that has to be compressed
 	infile.open( file.c_str() , ios::binary | ios::in );
@@ -461,23 +360,30 @@ int remaining_length;
 		// create new pool for occurances
 		occur_pool = new occur[ length ];
 		
+		cost = new int[ length + 1];
+		
 		// reset match results
 		for ( int j = 0; j < length; j++)
 		{
 			match_results[ j ].first = -1;
 			match_results[ j ].second = -1;
+			
+			cost[j] = 0;
 		}
+	
+		cost[ length ] = 0;
 	
 		// find matches for the whole file
 		find_matches();
 	                      	        
 		// remove all bad matches
-		strip_matches();      
+		slash_matches();
 	        
 		// write compressed data
 		write_file( &outfile, data, length, match_results );
 	          		                            		           
 	        // remove data
+	        delete [] cost;
 		delete [] occur_pool; 	
 		delete [] match_results;
 		delete [] data;
