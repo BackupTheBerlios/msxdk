@@ -169,13 +169,16 @@ int offset;
 	{
 		// if it's a match
 		if ( match_results[ position ].first > 1 )
-		{
-			// calculate offset
-			offset = position - match_results[ position ].second - 1;
-
+		{        
 			// write match marker
 			write_bit( 1 );
-
+			
+			// write length of offset
+			write_length( match_results[ position ].first - 2 );
+			
+			// calculate offset
+			offset = position - match_results[ position ].second - 1;
+                        
 			// if long offset
 			if ( offset > 127 )
 			{
@@ -194,9 +197,6 @@ int offset;
 				write_byte( offset );
 			}
 
-			// write length of offset
-			write_length( match_results[ position ].first - 2 );
-
 			// updated current position in compressed data
 			position += match_results[ position ].first;
 		}
@@ -213,9 +213,6 @@ int offset;
 	
 	// write RLE marker
 	write_bit( 1 );		
-
-	// write short offset byte
-	write_byte( 0 );
 	
 	// write eof marker
 	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );   

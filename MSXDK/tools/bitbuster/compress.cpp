@@ -273,14 +273,14 @@ int position = length - 1;
 }
 
 // compress a file
-void compress( const string & file, const string & output_file, int block_length  )
+void compress( const string & file, const string & output_file, unsigned short block_length  )
 {
 int compressed_length = 0;
 int file_length;
 ofstream outfile;
 ifstream infile;
-int block_count;
-int position;
+unsigned char block_count;
+unsigned int position;
 int remaining_length;
 	 	
 	// open file that has to be compressed
@@ -295,11 +295,7 @@ int remaining_length;
 
 	// get fil length
 	remaining_length = file_length = get_file_length( infile );
-         
-        // if block length not set, use file length as block length
-        if ( block_length == -1 )
-		block_length = file_length;
-		 
+         		 
 	// empty files won't be compressed
 	if ( file_length == 0 )
 	{
@@ -316,15 +312,12 @@ int remaining_length;
 		cerr << "Failed to open " << output_file << " for output" << endl;
 		return;
 	}
-        
-        // write original file length
-	outfile.write( (char*)&file_length, 4 );
-		
+        		
 	// calculate number of blocks to process
 	block_count = ( file_length - 1 ) / block_length + 1;
 	             	               
 	// write number of blocks to file
-	outfile.write( (char*)&block_count, 4 );
+	outfile.write( (char*)&block_count, 1 );
 						             	   
  	cout << "Compressing: " << file << "... ";
  	cout.flush();
@@ -336,7 +329,7 @@ int remaining_length;
 	 	position = outfile.tellp();
 		
 		// write dummy length value
-		outfile.write( (char*)&position, 4 );
+		outfile.write( (char*)&position, 2 );
 				 	
 		// set length of current block	
  		if ( remaining_length < block_length )
@@ -395,10 +388,10 @@ int remaining_length;
 		outfile.seekp( position, ios::beg );
 		
 		// calculate length of decompressed data
-		position = compressed_length - position - 4;
+		position = compressed_length - position - 2;
 		
 		// write length to file
-		outfile.write( (char*)&position, 4 );
+		outfile.write( (char*)&position, 2 );
 		
 		// back to end of file
 		outfile.seekp( 0, ios::end );

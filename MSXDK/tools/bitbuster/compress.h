@@ -40,7 +40,7 @@ using std::string;
 typedef pair<int,int> match_result;
 
 
-void compress( const string & file, const string & output_file, int p_block_length );
+void compress( const string & file, const string & output_file, unsigned short block_length );
 
 
 #endif
