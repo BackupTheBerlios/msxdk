@@ -31,6 +31,7 @@ using std::ios;
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <utime.h>
 #include <set>
 using std::set;
 #include <vector>
@@ -423,6 +424,41 @@ bool directory_to_cluster( const CLUSTER & start_cluster, const string & directo
 	return ret;
 }
 
+void set_datetime( FATDisk::object_info_t & object_info, const time_t & utc_time)
+{
+	struct tm * modification_time = localtime( &utc_time);
+	object_info.datetime.seconds = modification_time->tm_sec;
+	object_info.datetime.minutes = modification_time->tm_min;
+	object_info.datetime.hours 	 = modification_time->tm_hour;
+	object_info.datetime.day	 = modification_time->tm_mday;
+	object_info.datetime.month	 = modification_time->tm_mon + 1;
+	object_info.datetime.year	 = modification_time->tm_year + 1900;
+}
+
+bool set_datetime( const string & filename, FATDisk::object_info_t & object_info)
+{
+	bool	ret = true;
+	
+	struct tm modification_time;
+	modification_time.tm_sec 	= object_info.datetime.seconds;
+	modification_time.tm_min 	= object_info.datetime.minutes;
+	modification_time.tm_hour 	= object_info.datetime.hours;
+	modification_time.tm_mday 	= object_info.datetime.day;
+	modification_time.tm_mon 	= object_info.datetime.month - 1;
+	modification_time.tm_year 	= object_info.datetime.year - 1900;
+	struct utimbuf buf;
+	buf.modtime = mktime( &modification_time);
+	buf.modtime -= timezone;
+	buf.actime = buf.modtime;
+	if ( utime( filename.c_str(), &buf) != 0)
+	{
+		// xxx
+		report_stat_error( filename);
+		ret = false;
+	}
+	return ret;
+}
+
 bool recursive_read( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
 {
 	bool	ret = true;
@@ -462,21 +498,42 @@ bool recursive_read( const string host_directory, const string image_directory, 
         					}
         					else
         					{
-								if ( 
+        						if ( errno == ENOENT)
+        						{
+									if ( 
 #ifdef MINGW
-									mkdir( hostfile.c_str())
+										mkdir( hostfile.c_str())
 #else
-									mkdir( hostfile.c_str(), 0777)
+										mkdir( hostfile.c_str(), 0777)
 #endif
-									 != 0)
+									 	!= 0)
+									{
+										cerr << "Failed to mkdir " << hostfile << endl;
+										ret = false;
+									}
+								}
+								else
 								{
-									cerr << "Failed to mkdir " << hostfile << endl;
+									report_stat_error( hostfile);
 									ret = false;
 								}
 							}
 							if ( ret)
 							{
-								ret = recursive_read( hostfile + "/", image_directory + hostify( object_info.name, object_info.extension) + "/", "*", object_info.first_cluster);
+								ret = set_datetime( hostfile, object_info);
+								//xxx For now don't set read-only for directories on the host
+								// otherwise it will be impossible to write the contents into.
+								// Of course, we could set read-only only after a call to
+								// recursive_read for its contents, but that still wouldn't help
+								// if the directory already was set as read-only.
+								// So, we really should unset read-only for a host directory,
+								// THEN call recursive_read and afterwards (re)set the read-only.
+								// I'm not sure though people would really like their directory's
+								// write-access removed...
+								if ( ret)
+								{
+									ret = recursive_read( hostfile + "/", image_directory + hostify( object_info.name, object_info.extension) + "/", "*", object_info.first_cluster);
+								}
 							}
 						}
 						else
@@ -488,6 +545,28 @@ bool recursive_read( const string host_directory, const string image_directory, 
 								ret = g_fatdisk.read_object( object_info.first_cluster, object_info.size, 
 										outfile);
 								outfile.close();
+								if ( ret)
+								{
+									ret = set_datetime( hostfile, object_info);
+									if ( ret)
+									{
+										struct stat	file_stat;
+										if ( stat( hostfile.c_str(), &file_stat) == 0)
+										{
+											if ( chmod( hostfile.c_str(), (file_stat.st_mode | S_IWUSR) ^ ( object_info.attributes.read_only ? S_IWUSR : 0)) != 0)
+											{
+												//xxx
+												report_stat_error( hostfile);
+												ret = false;
+											}											
+										}
+										else
+										{
+											report_stat_error( hostfile);
+											ret = false;
+										}
+									}
+								}
 							}
 							else
 							{
@@ -562,17 +641,6 @@ bool find_directory_entry( FATDisk::object_info_t & entry, bool & found)
 		}
 	}
 	return ret;
-}
-
-void set_datetime( FATDisk::object_info_t & object_info, const time_t & utc_time)
-{
-	struct tm * modification_time = localtime( &utc_time);
-	object_info.datetime.seconds = modification_time->tm_sec;
-	object_info.datetime.minutes = modification_time->tm_min;
-	object_info.datetime.hours 	 = modification_time->tm_hour;
-	object_info.datetime.day	 = modification_time->tm_mday;
-	object_info.datetime.month	 = modification_time->tm_mon + 1;
-	object_info.datetime.year	 = modification_time->tm_year + 1900;
 }
 
 bool execute_mkdir( const CLUSTER directory_cluster, const string & image_directory, const char * subdirectory_name, CLUSTER & subdirectory_cluster, FATDisk::object_info_t * object_copy, const bool exists_is_error)
@@ -697,15 +765,12 @@ bool recursive_write( const string host_directory, const string image_directory,
 							}
 							if ( ret)
 							{
-								object_info.attributes.read_only = ((file_stat.st_mode & S_IWUSR) == 0);
-								set_datetime( object_info, file_stat.st_mtime);
 								ret = g_fatdisk.set_object_size( object_info.first_cluster, file_stat.st_size);
 								if ( ret)
 								{
-									// set_object_size might have altered the object's first_cluster
-									// so it needs to be written back to the image
-									//xxx as long as the size setting stays here that should be grounds
-									//enough as well
+									// note: object_info.first_cluster might also have been altered by set_object_size
+									object_info.attributes.read_only = ((file_stat.st_mode & S_IWUSR) == 0);
+									set_datetime( object_info, file_stat.st_mtime);
 									object_info.size = file_stat.st_size;									
 									ret = g_fatdisk.set_directory_entry( object_info);
 									if ( ret)
@@ -854,7 +919,7 @@ void print_syntax( ostream & stream = cerr)
 	stream << "Writes a file to or reads a file from a .DSK file" << endl;
 	stream << endl;
 	stream << g_program_name << " r[ead]|w[rite]|m[kdir]|d[elete]" << endl;
-	stream << "     [-hokec] [-f NNN] [-i <directory>] [-d <directory>]" << endl;
+	stream << "     [-hokec] [-f NNN] [-t <bootsector type>] [-i <directory>] [-d <directory>]" << endl;
 	stream << "     [<dsk filename> <filename> [<filename>...]]" << endl;
 	stream << endl;
 	stream << "  -h             Print this information" << endl;
@@ -867,7 +932,11 @@ void print_syntax( ostream & stream = cerr)
 	stream << "  -f NNN         If the .DSK file does not exist yet it will be created in" << endl;
 	stream << "                 the given Format." << endl;
 	stream << "                 360 = 360K, single sided, double density" << endl;
-	stream << "                 720 = 720K, double sided, double density" << endl;
+	stream << "                 720 = 720K, double sided, double density (default)" << endl;
+	stream << "  -t <bootsector If the .DSK file does not exist yet it will be created with" << endl;
+	stream << "      type>      the given bootsector type." << endl;
+	stream << "                 msx1 = MSX DOS1 (default)" << endl;
+	stream << "                 msx2 = MSX DOS2" << endl;
 	stream << endl;
 	stream << "Note: options may be given anywhere in the command line, even before the" << endl;
 	stream << "action or in between filenames." << endl;
@@ -881,7 +950,7 @@ bool process_options( int argc, char ** argv, int & arg_index)
 	OptionParser	parser( argc, argv);
 	int		option;
 	
-	while ( (option = parser.GetOption( "hokef:i:d:")) != -1)
+	while ( (option = parser.GetOption( "hoket:f:i:d:")) != -1)
 	{
 		switch (option)
 		{
@@ -896,6 +965,31 @@ bool process_options( int argc, char ** argv, int & arg_index)
 			break;
 		case 'e':			
 			g_dsk_exist = true;
+			break;
+		case 't':
+			{
+				struct bootblock_string{
+					int bootblock;
+					char * string;
+				};
+				static const bootblock_string bootblocks[] = {
+					{FATDisk::BOOTBLOCK_MSX1, "msx1"},
+					{FATDisk::BOOTBLOCK_MSX2, "msx2"}
+				};
+				for ( size_t bootblock_index = 0 ; bootblock_index < sizeof( bootblocks)/sizeof(bootblock_string); ++bootblock_index)
+				{
+					if ( strcasecmp( parser.Argument(), bootblocks[ bootblock_index].string) == 0)
+					{
+						g_bootblock = bootblocks[ bootblock_index].bootblock;
+						break;
+					}
+				}
+				if ( g_bootblock == FATDisk::BOOTBLOCK_NONE)
+				{
+					cerr << "Incorrect -t bootsector type value " << parser.Argument() << endl;
+					ret = false;
+				}
+			}
 			break;
 		case 'f':
 			{

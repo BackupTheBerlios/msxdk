@@ -76,7 +76,8 @@ public:
     
     enum {
     	BOOTBLOCK_NONE,
-    	BOOTBLOCK_MSX1
+    	BOOTBLOCK_MSX1,
+    	BOOTBLOCK_MSX2
     };
 
     enum {
