@@ -1,5 +1,5 @@
 #SUBDIRS = 3pp common appack arcreate
-SUBDIRS = common arcreate dodsk bitbuster
+SUBDIRS = common arcreate dodsk bitbuster bitrestorer
 
 all clean install::
 	@if [ ! -d include ]; then \
