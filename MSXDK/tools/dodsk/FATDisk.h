@@ -104,6 +104,14 @@ public:
 			int archive : 1;
 			int reserved : 2;
 		} attributes;
+		struct {
+			int	seconds;
+			int minutes;
+			int hours;
+			int day;
+			int month;
+			int year;
+		} datetime;
 		//xxx creation date etc
 	};    
 	

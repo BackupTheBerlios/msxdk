@@ -21,6 +21,7 @@
 #define _STDINC_H_
 
 typedef	unsigned char	BYTE;
+typedef unsigned short	WORD;
 typedef unsigned long	DWORD;
 
 #endif // _STDINC_H_

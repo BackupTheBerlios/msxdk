@@ -234,10 +234,14 @@ bool is_wildcarded( const char * filename)
 void split_path( const string & path, string & directory, string & leafname)
 {
 	size_t	seperator_pos = path.rfind( '/');
-	if ( seperator_pos == string::npos)
+	if ( (seperator_pos == string::npos) || (seperator_pos == (path.size() - 1)))
 	{
 		directory = "";
 		leafname = path;
+		if ( seperator_pos != string::npos)
+		{
+			leafname = leafname.substr( 0, leafname.size() - 1);
+		}
 	}
 	else
 	{
@@ -423,12 +427,9 @@ bool recursive_read( const string host_directory, const string image_directory, 
 {
 	bool	ret = true;
 	
-//xxx
-cout << "recursive_read: " << host_directory << "," << image_directory << "," << cluster << "," << name << endl;
 	bool	found = false;
 	int	entries;
 	ret = g_fatdisk.get_directory_entries( cluster, entries);
-cout << "entries: " << entries << endl;
 	if ( ret)
 	{
 		FATDisk::object_info_t	object_info;
@@ -450,7 +451,6 @@ cout << "entries: " << entries << endl;
 						string	hostfile = host_directory + hostify( object_info.name, object_info.extension);
 						if ( object_info.attributes.directory)
 						{							
-cout << "directory found: " << hostfile << endl;
 					        struct stat	dir_stat;
         					if ( stat( hostfile.c_str(), &dir_stat) == 0)
         					{
@@ -481,7 +481,6 @@ cout << "directory found: " << hostfile << endl;
 						}
 						else
 						{
-cout << "file found: " << hostfile << endl;
 							ofstream	outfile;
 			                outfile.open( hostfile.c_str(), ios::out|ios::binary);
 			                if ( outfile.is_open())
@@ -510,25 +509,6 @@ cout << "file found: " << hostfile << endl;
 		}
 	}
 	
-	/*
-	found = false
-	for each object in image_cluster do
-		if matches(object.name, filename) then
-			found = true
-			if object.type == directory then
-				mkdir host_directory+hostify(object.name)
-				recursive_read( host_directory + hostify(object.name), image_directory+object.name,
-								object.first_cluster, "*")
-			else
-				copy file from image to host_directory+hostify(object.name)
-			endif
-		endif
-	next
-	if wildcarded(filename) && !found then
-		error "file not found"
-	endif
-	*/
-	//xxx
 	return ret;
 }
 
@@ -538,7 +518,6 @@ bool preprocess_filename( const char * filename, string & host_directory, string
 {
 	bool	ret = true;
 
-cout << "preprocess_filename: " << filename << endl;
 	string	directory;
 	split_path( filename, directory, leafname);
 	if ( (g_host_directory.size() > 0) || enforce_host_directory)
@@ -566,7 +545,6 @@ bool find_directory_entry( FATDisk::object_info_t & entry, bool & found)
 	if ( ret)
 	{
 		FATDisk::object_info_t	object_info;
-		bool	found = false;
 		for ( int index = 0 ; ret && !found && index < entries ; ++index)
 		{
 			ret = g_fatdisk.get_directory_entry( entry.directory, index, object_info);
@@ -586,7 +564,18 @@ bool find_directory_entry( FATDisk::object_info_t & entry, bool & found)
 	return ret;
 }
 
-bool execute_mkdir( const CLUSTER directory_cluster, const string & image_directory, const char * subdirectory_name, CLUSTER & subdirectory_cluster, const bool exists_is_error)
+void set_datetime( FATDisk::object_info_t & object_info, const time_t & utc_time)
+{
+	struct tm * modification_time = localtime( &utc_time);
+	object_info.datetime.seconds = modification_time->tm_sec;
+	object_info.datetime.minutes = modification_time->tm_min;
+	object_info.datetime.hours 	 = modification_time->tm_hour;
+	object_info.datetime.day	 = modification_time->tm_mday;
+	object_info.datetime.month	 = modification_time->tm_mon + 1;
+	object_info.datetime.year	 = modification_time->tm_year + 1900;
+}
+
+bool execute_mkdir( const CLUSTER directory_cluster, const string & image_directory, const char * subdirectory_name, CLUSTER & subdirectory_cluster, FATDisk::object_info_t * object_copy, const bool exists_is_error)
 {
 	bool	ret = true;
 	
@@ -635,6 +624,7 @@ bool execute_mkdir( const CLUSTER directory_cluster, const string & image_direct
 				{
 					object_info.attributes.directory = true;
 					object_info.first_cluster = subdirectory_cluster;
+					set_datetime( object_info, time( NULL));
 					ret = g_fatdisk.new_directory_entry( object_info);	
 				}				
 				if ( !ret)
@@ -644,6 +634,10 @@ bool execute_mkdir( const CLUSTER directory_cluster, const string & image_direct
 			}
 		}
 	}
+	if ( ret && (object_copy != NULL))
+	{
+		*object_copy = object_info;
+	}
 	return ret;
 }
 
@@ -651,8 +645,6 @@ bool recursive_write( const string host_directory, const string image_directory,
 {
 	bool	ret = true;
 	
-	//xxx
-cout << "recursive write: " << host_directory << "," << name << endl;
 	DIR * opened_dir = opendir( host_directory.size() ? host_directory.c_str() : "./");
 	if ( opened_dir != NULL)
 	{
@@ -673,11 +665,18 @@ cout << "recursive write: " << host_directory << "," << name << endl;
 					if ( S_ISDIR( file_stat.st_mode))
 					{
 						CLUSTER	subdirectory_cluster;
-						ret = execute_mkdir( cluster, image_directory, entry->d_name, subdirectory_cluster, false);
+						FATDisk::object_info_t	object_info;
+						ret = execute_mkdir( cluster, image_directory, entry->d_name, subdirectory_cluster, &object_info, false);
 						if ( ret)
 						{
-							//xxx for the image_directory we should imageify_nice( entry->d_name)
-							ret = recursive_write( host_directory + string( entry->d_name) + "/", image_directory + string( entry->d_name) + "/", "*", subdirectory_cluster);
+							object_info.attributes.read_only = ((file_stat.st_mode & S_IWUSR) == 0);
+							set_datetime( object_info, file_stat.st_mtime);
+							ret = g_fatdisk.set_directory_entry( object_info);
+							if ( ret)
+							{
+								//xxx for the image_directory we should imageify_nice( entry->d_name)
+								ret = recursive_write( host_directory + string( entry->d_name) + "/", image_directory + string( entry->d_name) + "/", "*", subdirectory_cluster);
+							}
 						}
 					}
 					else
@@ -685,7 +684,8 @@ cout << "recursive write: " << host_directory << "," << name << endl;
 						FATDisk::object_info_t	object_info;
 						memset( &object_info, 0, sizeof( object_info));
 						object_info.directory = cluster;						
-						bool found;						
+						bool found;				
+						//xxx turn first character e5->05		
 						ret = imageify( entry->d_name, object_info.name, object_info.extension) && 
 								find_directory_entry( object_info, found);
 						if ( ret)
@@ -693,11 +693,12 @@ cout << "recursive write: " << host_directory << "," << name << endl;
 							if ( !found)
 							{
 								object_info.attributes.archive = true;
-								//xxx need to get the read-only attribute from the host somehow
 								ret = g_fatdisk.new_directory_entry( object_info);
 							}
 							if ( ret)
 							{
+								object_info.attributes.read_only = ((file_stat.st_mode & S_IWUSR) == 0);
+								set_datetime( object_info, file_stat.st_mtime);
 								ret = g_fatdisk.set_object_size( object_info.first_cluster, file_stat.st_size);
 								if ( ret)
 								{
@@ -755,7 +756,7 @@ bool single_mkdir( const string host_directory, const string image_directory, co
 	bool    ret = true;
 
 	CLUSTER subdirectory_cluster;
-	ret = execute_mkdir( cluster, image_directory, name, subdirectory_cluster, true);
+	ret = execute_mkdir( cluster, image_directory, name, subdirectory_cluster, NULL, true);
 	return ret;
 }
 
@@ -763,10 +764,54 @@ bool recursive_delete( const string host_directory, const string image_directory
 {
 	bool    ret = true;
 
-	//xxx
-	cerr << "delete not implemented yet" << endl;
-	ret = false;
-	//xxx
+	bool	found = false;
+	int	entries;
+	ret = g_fatdisk.get_directory_entries( cluster, entries);
+	if ( ret)
+	{
+		FATDisk::object_info_t	object_info;
+		for ( int index = 0 ; ret && index < entries ; ++index)
+		{
+			ret = g_fatdisk.get_directory_entry( cluster, index, object_info);
+			if ( ret)
+			{
+				if ( 
+					( (strcmp( object_info.name, ".       ") != 0) || (strcmp( object_info.extension, "   ") != 0)) &&
+					( (strcmp( object_info.name, "..      ") != 0) || (strcmp( object_info.extension, "   ") != 0)) &&
+					( object_info.name[0] != '\0') &&
+					( object_info.name[0] != DELETED_ENTRY_CHAR)
+					)
+				{
+					if ( matches( name, object_info.name, object_info.extension))
+					{
+						found = true;
+						string	hostfile = host_directory + hostify( object_info.name, object_info.extension);
+						if ( object_info.attributes.directory)
+						{							
+							ret = recursive_delete( hostfile + "/", image_directory + hostify( object_info.name, object_info.extension) + "/", "*", object_info.first_cluster);
+						}
+						if ( ret)
+						{
+							ret = g_fatdisk.set_object_size( object_info.first_cluster, 0);
+							if ( ret)
+							{
+								object_info.name[0] = DELETED_ENTRY_CHAR;
+								ret = g_fatdisk.set_directory_entry( object_info);
+							}
+						}
+					}
+				}
+			}
+		}
+		if ( ret)
+		{
+			if ( !found && !is_wildcarded( name))
+			{
+				cerr << image_directory << name << " not found." << endl;
+				ret = false;
+			}
+		}
+	}
 	return ret;
 }
 

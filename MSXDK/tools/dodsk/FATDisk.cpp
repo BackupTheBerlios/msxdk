@@ -896,7 +896,13 @@ bool FATDisk::get_directory_entry( const CLUSTER directory, const int index, obj
 			object_info.attributes.system 		= (entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_SYSTEM) ? true : false;
 			object_info.attributes.volume_label = (entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_VOLUME_LABEL) ? true : false;
 			object_info.attributes.directory 	= (entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_DIRECTORY) ? true : false;
-			object_info.attributes.archive		= (entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_ARCHIVE) ? true : false;			
+			object_info.attributes.archive		= (entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_ARCHIVE) ? true : false;
+			object_info.datetime.seconds 	= (LDRWORD( entry + DIRECTORY_ENTRY_TIME) & 31) * 2;
+			object_info.datetime.minutes	= (LDRWORD( entry + DIRECTORY_ENTRY_TIME) >> 5) & 63;
+			object_info.datetime.hours		= (LDRWORD( entry + DIRECTORY_ENTRY_TIME) >> 11) & 31;
+			object_info.datetime.day		= LDRWORD( entry + DIRECTORY_ENTRY_DATE) & 31;
+			object_info.datetime.month		= (LDRWORD( entry + DIRECTORY_ENTRY_DATE) >> 5) & 15;
+			object_info.datetime.year		= 1980 + ((LDRWORD( entry + DIRECTORY_ENTRY_DATE) >> 9) & 127);
 		}
 	}
 	return ret;
@@ -927,6 +933,10 @@ bool FATDisk::set_directory_entry( const object_info_t & object_info)
 			entry[ DIRECTORY_ENTRY_ATTRIBUTE] |= object_info.attributes.volume_label? DIRECTORY_ENTRY_ATTRIBUTE_VOLUME_LABEL : 0;
 			entry[ DIRECTORY_ENTRY_ATTRIBUTE] |= object_info.attributes.directory 	? DIRECTORY_ENTRY_ATTRIBUTE_DIRECTORY : 0;
 			entry[ DIRECTORY_ENTRY_ATTRIBUTE] |= object_info.attributes.archive 	? DIRECTORY_ENTRY_ATTRIBUTE_ARCHIVE : 0;			
+			WORD	time = (object_info.datetime.seconds >> 1) + (object_info.datetime.minutes << 5) + (object_info.datetime.hours << 11);
+			STRWORD( entry + DIRECTORY_ENTRY_TIME, time);
+			WORD	date = object_info.datetime.day + (object_info.datetime.month << 5) + ((object_info.datetime.year - 1980) << 9);
+			STRWORD( entry + DIRECTORY_ENTRY_DATE, date);
 			ret = write_cluster( cluster, data);
 		}
 	}
