@@ -35,6 +35,7 @@ using std::pair;
 
 #include <time.h>
 
+#include "OptionParser.h"
 
 ofstream outfile;
 int bitstream_position;
@@ -423,8 +424,8 @@ int position = 0;
 
 			if ( best_result.second == ( position - 1 ) )
 			{
-				if ( best_result.first > 8 )
-					position += best_result.first - 8;
+				if ( best_result.first > 16 )
+					position += best_result.first - 16;
 			}
 		}
 		
@@ -451,13 +452,13 @@ int depth;
 match_link *best;
 
 
-match_link match_link_pool[ 2048 ];
+match_link match_link_pool[ 65536 ];
 int match_link_index;
 
 
 void find_best( match_link *current )
 {
-	if ( ++depth == 8 || current->position == length )
+	if ( ++depth == 12 || current->position == length )
 	{
 		if ( current->position >= best->position )
 		{
@@ -474,7 +475,7 @@ void find_best( match_link *current )
 	}
 	else
 	{
-		match_link *literal = &match_link_pool[ match_link_index++ ];	// new match_link();//
+		match_link *literal = &match_link_pool[ match_link_index++ ];
 
 		literal->cost = current->cost + 9;
 		literal->position = current->position + 1;
@@ -486,7 +487,7 @@ void find_best( match_link *current )
 
 		if ( match_results[ current->position ].first > 1 )
 		{
-			match_link *match = &match_link_pool[ match_link_index++ ]; //new match_link();
+			match_link *match = &match_link_pool[ match_link_index++ ];
 
 			if ( current->position - match_results[ current->position ].second > 128 )
 				match->cost = current->cost + 1 + 12;

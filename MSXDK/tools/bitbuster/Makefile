@@ -11,7 +11,7 @@ OBJECTS  = main.o
 INCDIR   = ../include
 BINDIR   = ../../bin
 LIBDIR   = ../lib
-LIBS     = 
+LIBS     = -lcommon
 
 CXXFLAGS = -Wall -pedantic -O3 -I$(INCDIR)
 ifneq ($(ISMINGW),)
