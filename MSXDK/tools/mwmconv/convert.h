@@ -33,6 +33,7 @@ using std::ios;
 #include <string>
 using std::string;
 
+#include "filesnstreams.h"
 
 bool convert( string input_name, string output_name, bool clear_songname );
 

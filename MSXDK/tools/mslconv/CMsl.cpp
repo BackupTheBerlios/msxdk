@@ -203,14 +203,10 @@ CToneHeader th;
 
 	wavekit[mwkcnt].SetName(realname);
 
-	cout << (int)mwk.GetToneCnt() << endl;
-
 	//iterate through all tones
 	for (int t = 0; t < mwk.GetToneCnt(); t++)
 	{	//get tone
 		tone = mwk.GetTone(t);
-
-		cout << (int)tone.GetType() << ":" << (int)tone.GetFreq() << endl;
 
 		if (tone.GetType() && tone.GetFreq() )
 		{
@@ -306,7 +302,7 @@ int smppos[2048];
 		out.write((char*)&zero, 4);
 
 	//output number of samples used
-	out.write((char*)&msl.smpcnt, 2);
+	write_littleendian( out, 2, msl.smpcnt );
 
 	//get position of first pointer to sample data
 	smppnt = out.tellp();
@@ -336,14 +332,14 @@ int smppos[2048];
 
 	//output all mwk pointers
 	for (int k = 0; k < msl.mwkcnt; k++)
-		out.write((char*)&mwkpos[k], 4);
+		write_littleendian( out, 4, (long)mwkpos[ k ] );
 
 	//move to position of first sample pointer
 	out.seekp(smppnt, ios::beg);
 
 	//output all sample pointers
 	for (int s = 0; s < msl.smpcnt; s++)
-		out.write((char*)&smppos[s], 4);
+		write_littleendian( out, 4, (long)smppos[ s ] );
 
 	//move to end of file
 	out.seekp(0, ios::end);
@@ -351,9 +347,10 @@ int smppos[2048];
 	return out;
 }
 
-
+// not supported yet
 CMsl& operator>>(ifstream &in, CMsl &msl)
 {
 
 	return msl;
 }
+

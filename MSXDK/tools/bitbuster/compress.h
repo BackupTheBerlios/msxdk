@@ -32,7 +32,9 @@ using std::ios;
 using std::pair;
 
 #include <string>
-using std::string;
+using std::string;    
+
+#include "filesnstreams.h"
 
 // result of a string match
 // first = match length

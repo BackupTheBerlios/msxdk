@@ -29,6 +29,9 @@ using std::ifstream;
 using std::ofstream;
 using std::ios;
 
+#include "filesnstreams.h"
+
+
 class CToneHeader
 {
 private:

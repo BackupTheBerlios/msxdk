@@ -95,7 +95,7 @@ unsigned char wavecnt;
 
 	for (int t = 0; t < kit.tonecnt; t++)
 	{
-		out.write((char*)&kit.tones[t], 2);
+		write_littleendian( out, 2, (long)kit.tones[ t ] );
 
 		out << kit.th[t];
 	}
@@ -114,7 +114,7 @@ unsigned char wavecnt;
 	return out;
 }
 
-
+// not supported yet....
 CMslkit& operator>>(ifstream &in, CMslkit &kit)
 {
 

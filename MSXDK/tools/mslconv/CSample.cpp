@@ -120,7 +120,7 @@ ofstream& operator<<(ofstream &out, const CSample &sample)
 	if (sample.length > 0)
 	{
 		//output sample length
-		out.write((char*)&sample.length, 2);
+		write_littleendian( out, 2, sample.length );
 
 		//output sample data
 		out.write(sample.data, sample.length);
@@ -132,8 +132,8 @@ ofstream& operator<<(ofstream &out, const CSample &sample)
 
 CSample& operator>>(ifstream &in, CSample &sample)
 {
-	//read sample length
-	in.read((char*)&sample.length, 2);
+	//read sample length              
+	read_littleendian( in, 2, sample.length );
 
 	//read sample data
 	in.read(sample.data, sample.length);

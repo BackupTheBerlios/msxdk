@@ -391,8 +391,8 @@ int remaining_length;
 		position = compressed_length - position - 2;
 		
 		// write length to file
-		outfile.write( (char*)&position, 2 );
-		
+		write_littleendian( outfile, 2, (long)position );
+				
 		// back to end of file
 		outfile.seekp( 0, ios::end );
 		

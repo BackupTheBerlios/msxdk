@@ -35,10 +35,10 @@ using std::ifstream;
 using std::ofstream;
 using std::ios;
 
-
 #include <string>
 using std::string;
-
+                     
+#include "filesnstreams.h"
 
 int decompress( string sourcename, string outputname );   
 

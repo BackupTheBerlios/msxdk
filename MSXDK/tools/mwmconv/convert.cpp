@@ -73,11 +73,11 @@ char *userid = "MBMS\x010\x008";
 					+ 1 + 1 + 24 + 1 + 1 + 24 + 48 + 24 + 48 + 48 + 50 + 8
 					+ ( songlength +  1) + 2 * highestpattern;
 
-		output.write( (char*)&offset, 2 );
+                write_littleendian( output, 2, offset );                
 	}
 
 	short length = offsets[ highestpattern ] - offsets[ 0 ];
-	output.write( (char*)&length, 2 );
+	write_littleendian( output, 2, length );
 	output.write( (char*)&highestpattern, 1 );
 
 	for ( int c = 0; c < highestpattern; c++ )
@@ -129,8 +129,11 @@ char id[6];
 	input.read( (char*)volumes, 48 );
 	input.read( (char*)songname, 50 );
 	input.read( (char*)wavekit, 8 );
-	input.read( (char*)offsets, 160 );
-	input.read( (char*)&extoffset, 2 );
+	
+	for ( int i = 0; i < 80; i++ )
+		read_littleendian( input, 2, offsets[ i ] );
+		
+	read_littleendian( input, 2, extoffset );
 	input.read( (char*)&extdat, 1 );
 
 	patterndata = new unsigned char[ extoffset ];

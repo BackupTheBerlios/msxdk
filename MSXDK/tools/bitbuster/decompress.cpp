@@ -186,8 +186,8 @@ unsigned char block_count;
 	while ( block_count-- ) 
 	{
 		// read length of current block
-		infile.read( (char*)&block_length, 2 );
-				
+		read_littleendian( infile, 2, block_length );
+						
 		if ( infile.fail() )
 		{
 			delete [] output_data;

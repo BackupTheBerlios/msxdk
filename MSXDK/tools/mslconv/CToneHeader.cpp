@@ -144,16 +144,16 @@ CToneHeader& CToneHeader::operator=(const CToneHeader &th)
 int CToneHeader::Read(ifstream &in)
 {
 	//read LSB tone address, just store it here even if we're not dealing with rom-tones
-	in.read((char*)&address, 2);
+	read_littleendian( in, 2, address );
 
 	if ( !(type & 32) )
 		address = 0;
 
 	//read loop point
-	in.read((char*)&loop, 2);
+	read_littleendian( in, 2, loop );
 
 	//read end point
-	in.read((char*)&end, 2);
+	read_littleendian( in, 2, end );
 
 	//read lfo/vib settings
 	in.read((char*)&lfo, 1);
@@ -182,7 +182,7 @@ int CToneHeader::Read(ifstream &in)
 	else
 	{	//new sample
 		//read size
-		in.read((char*)&size, 2);
+		read_littleendian( in, 2, size );
 	}
 
 	return 0;
@@ -192,11 +192,11 @@ int CToneHeader::Read(ifstream &in)
 int CToneHeader::Write(ofstream &out) const 
 {
 	//output LSB starting address (rom tone) OR zero's (new sample)
-	out.write((char*)&address, 2);
+	write_littleendian( out, 2, address );
 
-	out.write((char*)&loop, 2);
+	write_littleendian( out, 2, loop );
 
-	out.write((char*)&end, 2);
+	write_littleendian( out, 2, end );
 
 	out.write((char*)&lfo, 1);
 
@@ -216,7 +216,7 @@ int CToneHeader::Write(ofstream &out) const
 		out.write((char*)&msb, 1);
 	}
 	else
-		out.write((char*)&size, 2);
+		write_littleendian( out, 2, size );
 
 	return 0;
 }
@@ -234,7 +234,7 @@ ofstream& operator<<(ofstream &out, const CToneHeader &th)
 		out.write((char*)&th.msb, 1);
 
 		//output LSB tone-address 
-		out.write((char*)&th.address, 2);
+		write_littleendian( out, 2, th.address );
 	}
 	else
 	{	//own sample
@@ -242,14 +242,14 @@ ofstream& operator<<(ofstream &out, const CToneHeader &th)
 		out.write((char*)&th.size, 1);
 
 		//output sample size
-		out.write((char*)&th.size, 2);
+		write_littleendian( out, 2, th.size );
 	}
 
 	//output loop point
-	out.write((char*)&th.loop, 2);
+	write_littleendian( out, 2, th.loop );
 
 	//output end point
-	out.write((char*)&th.end, 2);
+	write_littleendian( out, 2, th.end );
 
 	//output lfo/vib settings
 	out.write((char*)&th.lfo, 1);
@@ -282,7 +282,7 @@ CToneHeader& operator>>(ifstream &in, CToneHeader &th)
 		in.read((char*)&th.msb, 1);
 
 		//read LSB tone address
-		in.read((char*)&th.address, 2);
+		read_littleendian( in, 2, th.address );
 	}
 	else
 	{	//new sample
@@ -290,14 +290,14 @@ CToneHeader& operator>>(ifstream &in, CToneHeader &th)
 		in.read((char*)&th.size, 1);
 
 		//read size
-		in.read((char*)&th.size, 2);
+		read_littleendian( in, 2, th.size );
 	}
 
 	//read loop point
-	in.read((char*)&th.loop, 2);
+	read_littleendian( in, 2, th.loop );
 
 	//read end point
-	in.read((char*)&th.end, 2);
+	read_littleendian( in, 2, th.end );
 
 	//read lfo/vib settings
 	in.read((char*)&th.lfo, 1);

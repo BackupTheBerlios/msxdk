@@ -31,6 +31,9 @@ using std::ofstream;
 using std::ios;
 
 
+#include "filesnstreams.h"
+
+
 #include "CMslkit.h"
 #include "CMwk.h"
 

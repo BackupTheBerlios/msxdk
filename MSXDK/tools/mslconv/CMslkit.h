@@ -23,6 +23,11 @@
 
 
 #include <iostream>
+
+
+#include "filesnstreams.h"
+
+
 #include "CPatch.h"
 #include "CToneHeader.h"
 
