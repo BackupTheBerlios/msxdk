@@ -6,12 +6,12 @@ else
 endif
 
 TARGETS	 = dodsk$(EXTENSION)
-OBJECTS  = main.o FATDisk.o OptionParser.o
+OBJECTS  = main.o FATDisk.o
 
 INCDIR   = ../include
 BINDIR   = ../../bin
 LIBDIR   = ../lib
-LIBS     = 
+LIBS     = -lcommon
 
 CXXFLAGS = -Wall -pedantic -O2 -I$(INCDIR)
 ifneq ($(ISMINGW),)
