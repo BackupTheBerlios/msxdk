@@ -18,52 +18,74 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <stdio.h>
+#include <fstream>
+#include <iostream>
+using std::ofstream;
+using std::ifstream;
+using std::cout;
+using std::cerr;
+using std::endl;
+using std::fstream;
+using std::ios;
 #include "loadsave_file.h"
-
 using std::vector;
 
 bool load_file( const char * path, vector<char> & data)
 {
-    FILE    *fh = fopen( path, "rb");
-    if ( fh != NULL)
-    {
-        fseek( fh, 0, SEEK_END);
-        size_t size = ftell( fh);
-        fseek( fh, 0, SEEK_SET);
-        data.resize( size);
-        if ( fread( &data[0], 1, size, fh) != size)
-        {
-            fprintf( stderr, "Failed to read all bytes from %s\n", path);
-            fclose( fh);
-            return false;
-        }
-        fclose( fh);
-        return true;
-    }
-    else
-    {
-        fprintf( stderr, "Failed to open %s for input\n", path);
-        return false;
-    }    
+	bool	ret = true;
+	
+	ifstream	file;
+	file.open( path, ios::in|ios::binary);
+	if ( file.is_open())
+	{
+		file.seekg( 0, ios::end);
+		size_t size = file.tellg();
+		file.seekg( 0, ios::beg);
+		if ( !file.fail())
+		{
+			data.resize( size);
+			file.read( &data[0], size);
+			if ( file.fail())
+			{
+				cerr << "Failed to read (all) bytes from file " << path << endl;
+				ret = false;
+			}
+		}
+		else
+		{
+			cerr << "Failed to determine length of file " << path << endl;
+			ret = false;
+		}
+		file.close();
+	}
+	else
+	{
+		cerr << "Failed to open " << path << " for input" << endl;
+		ret = false;
+	}
+	return ret;
 }
 
 bool save_file( const char * path, char * data, size_t size)
 {
-    FILE    *fh = fopen( path, "wb");
-    if ( fh != NULL)
-    {
-        if ( fwrite( data, 1, size, fh) != size)
-        {
-            fprintf( stderr, "Failed to write all bytes to %s\n", path);
-            fclose( fh);
-            return false;
-        }
-        fclose( fh);
-        return true;
-    }
-    else
-    {
-        fprintf( stderr, "Failed to open %s for output\n", path);
-        return false;
-    }
+	bool	ret = true;
+	
+	ofstream	file;
+	file.open( path, ios::in|ios::binary|ios::out|ios::trunc);
+	if ( file.is_open())
+	{
+		file.write( data, size);
+		if ( file.fail())
+		{
+			cerr << "Failed to write (all) bytes to file " << path << endl;
+			ret = false;
+		}
+		file.close();
+	}
+	else
+	{
+		cerr << "Failed to open " << path << " for output" << endl;
+		ret = false;
+	}
+	return ret;
 }
