@@ -363,67 +363,6 @@ void forward_slash_and_terminate( string & path)
 	}
 }
 
-bool directory_to_cluster( const CLUSTER & start_cluster, const string & directory, CLUSTER & cluster)
-{
-	bool	ret = true;
-	
-	cluster = start_cluster;
-	string	remaining = directory;
-	while ( ret && remaining[0] != '\0')
-	{
-		size_t	seperator_pos = remaining.find( '/');
-		if ( seperator_pos == string::npos)
-		{
-			seperator_pos = remaining.find( '\\');
-		}
-		string	directory_name;
-		if ( seperator_pos == string::npos)
-		{
-			directory_name = remaining;
-			remaining = "";
-		}
-		else
-		{
-			directory_name = remaining.substr( 0, seperator_pos);
-			remaining = remaining.substr( seperator_pos + 1);
-		}
-		if ( directory_name.size() > 0)
-		{
-			int	entries;
-			ret = g_fatdisk.get_directory_entries( cluster, entries);
-			if ( ret)
-			{
-				FATDisk::object_info_t	object_info;
-				bool	found = false;
-				for ( int index = 0 ; ret && !found && index < entries ; ++index)
-				{
-					ret = g_fatdisk.get_directory_entry( cluster, index, object_info);
-					if ( ret)
-					{
-						if ( 
-							( strcmp( object_info.name, ".          ") != 0) &&
-							( strcmp( object_info.name, "..         ") != 0) &&
-							( object_info.name[0] != '\0') &&
-							( object_info.name[0] != DELETED_ENTRY_CHAR) &&
-							( matches( directory_name.c_str(), object_info.name, object_info.extension))
-							)
-						{
-							cluster = object_info.first_cluster;
-							found = true;
-						}
-					}
-				}
-				if ( ret && !found)
-				{
-					cerr << directory << " not found." << endl;
-					ret = false;
-				}
-			}
-		}
-	}
-	return ret;
-}
-
 void set_datetime( FATDisk::object_info_t & object_info, const time_t & utc_time)
 {
 	struct tm * modification_time = localtime( &utc_time);
@@ -455,6 +394,85 @@ bool set_datetime( const string & filename, FATDisk::object_info_t & object_info
 		// xxx
 		report_stat_error( filename);
 		ret = false;
+	}
+	return ret;
+}
+
+bool find_directory_entry( FATDisk::object_info_t & entry, bool & found)
+{
+	bool	ret = true;
+	
+	found = false;
+	int	entries;
+	ret = g_fatdisk.get_directory_entries( entry.directory, entries);
+	if ( ret)
+	{
+		FATDisk::object_info_t	object_info;
+		for ( int index = 0 ; ret && !found && index < entries ; ++index)
+		{
+			ret = g_fatdisk.get_directory_entry( entry.directory, index, object_info);
+			if ( ret)
+			{
+				if ( 
+					( strcasecmp( entry.name, object_info.name) == 0) &&
+					( strcasecmp( entry.extension, object_info.extension) == 0)
+					)
+				{
+					entry = object_info;
+					found = true;
+				}
+			}
+		}
+	}
+	return ret;
+}
+
+bool directory_to_cluster( string start_directory, const CLUSTER & start_cluster, const string & directory, CLUSTER & cluster)
+{
+	bool	ret = true;
+	
+	cluster = start_cluster;
+	string	remaining = directory;
+	while ( ret && remaining[0] != '\0')
+	{
+		size_t	seperator_pos = remaining.find( '/');
+		if ( seperator_pos == string::npos)
+		{
+			seperator_pos = remaining.find( '\\');
+		}
+		string	directory_name;
+		if ( seperator_pos == string::npos)
+		{
+			directory_name = remaining;
+			remaining = "";
+		}
+		else
+		{
+			directory_name = remaining.substr( 0, seperator_pos);
+			remaining = remaining.substr( seperator_pos + 1);
+		}
+		if ( directory_name.size() > 0)
+		{
+			FATDisk::object_info_t	object_info;
+			memset( &object_info, 0, sizeof( object_info));
+			object_info.directory = cluster;
+			bool found;						
+			ret = imageify( directory_name, object_info.name, object_info.extension) && 
+					find_directory_entry( object_info, found);
+			if ( ret)
+			{
+				if ( found)
+				{
+					cluster = object_info.first_cluster;
+					start_directory += directory_name + "/";
+				}
+				else
+				{
+					cerr << start_directory << directory_name << " not found." << endl;
+					ret = false;
+				}
+			}
+		}
 	}
 	return ret;
 }
@@ -588,58 +606,6 @@ bool recursive_read( const string host_directory, const string image_directory, 
 		}
 	}
 	
-	return ret;
-}
-
-bool preprocess_filename( const char * filename, string & host_directory, string & image_directory,
-							 string & leafname, CLUSTER & image_directory_cluster,
-							 const bool enforce_host_directory)
-{
-	bool	ret = true;
-
-	string	directory;
-	split_path( filename, directory, leafname);
-	if ( (g_host_directory.size() > 0) || enforce_host_directory)
-	{
-		host_directory = g_host_directory + hostify( directory);
-		image_directory = g_image_directory + directory;
-		ret = directory_to_cluster( g_image_directory_cluster, directory, image_directory_cluster);
-	}
-	else
-	{
-		host_directory = directory;
-		image_directory = g_image_directory;
-		image_directory_cluster = g_image_directory_cluster;
-	}
-	return ret;
-}
-
-bool find_directory_entry( FATDisk::object_info_t & entry, bool & found)
-{
-	bool	ret = true;
-	
-	found = false;
-	int	entries;
-	ret = g_fatdisk.get_directory_entries( entry.directory, entries);
-	if ( ret)
-	{
-		FATDisk::object_info_t	object_info;
-		for ( int index = 0 ; ret && !found && index < entries ; ++index)
-		{
-			ret = g_fatdisk.get_directory_entry( entry.directory, index, object_info);
-			if ( ret)
-			{
-				if ( 
-					( strcasecmp( entry.name, object_info.name) == 0) &&
-					( strcasecmp( entry.extension, object_info.extension) == 0)
-					)
-				{
-					entry = object_info;
-					found = true;
-				}
-			}
-		}
-	}
 	return ret;
 }
 
@@ -880,6 +846,29 @@ bool recursive_delete( const string host_directory, const string image_directory
 	return ret;
 }
 
+bool preprocess_filename( const char * filename, string & host_directory, string & image_directory,
+							 string & leafname, CLUSTER & image_directory_cluster,
+							 const bool enforce_host_directory)
+{
+	bool	ret = true;
+
+	string	directory;
+	split_path( filename, directory, leafname);
+	if ( (g_host_directory.size() > 0) || enforce_host_directory)
+	{
+		host_directory = g_host_directory + hostify( directory);
+		image_directory = g_image_directory + directory;
+		ret = directory_to_cluster( g_image_directory, g_image_directory_cluster, directory, image_directory_cluster);
+	}
+	else
+	{
+		host_directory = directory;
+		image_directory = g_image_directory;
+		image_directory_cluster = g_image_directory_cluster;
+	}
+	return ret;
+}
+
 bool dodsk_misc( 
 	int argc, char ** argv, 
 	bool (*process)( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster),
@@ -891,7 +880,7 @@ bool dodsk_misc(
 	ret = g_fatdisk.open( g_dsk_filename, (g_dsk_exist ? FATDisk::OPEN_MUSTEXIST : 0) | (read_only ? FATDisk::OPEN_READONLY : 0), g_format, g_bootblock);
 	if (ret)
 	{
-		ret = check_host_directory() && directory_to_cluster( ROOT_DIRECTORY_CLUSTER, g_image_directory, g_image_directory_cluster);
+		ret = check_host_directory() && directory_to_cluster( "", ROOT_DIRECTORY_CLUSTER, g_image_directory, g_image_directory_cluster);
 		if ( ret)
 		{
 			for ( int arg_index = argc ? 0 : -1 ; arg_index < argc ; ++arg_index)
@@ -950,7 +939,7 @@ bool process_options( int argc, char ** argv, int & arg_index)
 	OptionParser	parser( argc, argv);
 	int		option;
 	
-	while ( (option = parser.GetOption( "hoket:f:i:d:")) != -1)
+	while ( (option = parser.GetOption( "choket:f:i:d:")) != -1)
 	{
 		switch (option)
 		{
@@ -1036,6 +1025,7 @@ bool process_options( int argc, char ** argv, int & arg_index)
 			}
 			break;
 		default:
+			cerr << "Unrecognized option: -" << (char)parser.Option() << endl;
 			ret = false;
 			break;
 		}
