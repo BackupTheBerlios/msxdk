@@ -204,8 +204,7 @@ bool matches( const char * filename, const char * name, const char * extension)
 	}
 	else
 	{
-		ret = match( wild.substr( 0, dotpos), short_name) &&
-			match( wild.substr( dotpos + 1), short_extension);
+		ret = match( wild, short_name + string(".") + short_extension);
 	}
 	return ret;
 }
@@ -476,6 +475,7 @@ bool preprocess_filename( const char * filename, string & host_directory, string
 {
 	bool	ret = true;
 
+cout << "preprocess_filename: " << filename << endl;
 	string	directory;
 	split_path( filename, directory, leafname);
 	if ( g_host_directory.size() > 0)
@@ -544,30 +544,67 @@ bool write_files( CLUSTER directory_cluster, char * wildcardedname)
 bool recursive_write( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
 {
 	bool	ret = true;
-	/*	
-	DIR * opened_dir = opendir( "C:\\MA*");
+	
+	//xxx
+cout << "recursive write: " << host_directory << "," << name << endl;
+	DIR * opened_dir = opendir( host_directory.size() ? host_directory.c_str() : "./");
 	if ( opened_dir != NULL)
 	{
 		struct dirent * entry;
 		
-		while ( (entry = readdir( opened_dir)) != NULL)
+		while ( ret && ((entry = readdir( opened_dir)) != NULL))
 		{
-			cout << entry->d_name << endl;
+			if ( 
+				( strcmp( entry->d_name, ".") != 0) &&
+				( strcmp( entry->d_name, "..") != 0) &&
+				( match( name, string(entry->d_name)))
+				)
+			{
+				struct stat	file_stat;
+				string	hostfile = host_directory + string( entry->d_name);
+				if ( stat( hostfile.c_str(), &file_stat) == 0)
+				{
+					if ( S_ISDIR( file_stat.st_mode))
+					{
+						cout << "directory found: " << hostfile << endl;
+						//xxx
+					}
+					else
+					{
+						cout << "file found: " << hostfile << endl;
+						//xxx
+					}
+				}
+				else
+				{
+					report_stat_error( hostfile);
+					ret = false;
+				}
+			}
+		}
+		if ( ret && ( entry == NULL) && ( errno != ENOENT))
+		{
+			//xxx
+			cerr << errno << endl;
 		}
 		closedir( opened_dir);
 		opened_dir = NULL;
 	}
 	else
 	{
-		report_stat_error( g_host_directory);		
+		//xxx
+		report_stat_error( host_directory);		
 	}
-	*/
 	return ret;
 }
 
-bool recursive_mkdir( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
+bool single_mkdir( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
 {
 	bool    ret = true;
+	
+	//xxx
+	cerr << "mkdir not implemented yet" << endl;
+	ret = false;
 	//xxx
 	return ret;
 }
@@ -575,6 +612,10 @@ bool recursive_mkdir( const string host_directory, const string image_directory,
 bool recursive_delete( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
 {
 	bool    ret = true;
+
+	//xxx
+	cerr << "delete not implemented yet" << endl;
+	ret = false;
 	//xxx
 	return ret;
 }
@@ -589,11 +630,10 @@ bool dodsk_misc(
 	ret = g_fatdisk.open( g_dsk_filename, (g_dsk_exist ? FATDisk::OPEN_MUSTEXIST : 0) | (read_only ? FATDisk::OPEN_READONLY : 0), g_format, g_bootblock);
 	if (ret)
 	{
-		//xxx		
 		ret = check_host_directory() && directory_to_cluster( ROOT_DIRECTORY_CLUSTER, g_image_directory, g_image_directory_cluster);
 		if ( ret)
 		{
-			for ( int arg_index = argc ? argc : -1 ; arg_index < argc ; ++arg_index)
+			for ( int arg_index = argc ? 0 : -1 ; arg_index < argc ; ++arg_index)
 			{
 				string	host_directory, image_directory, leafname;
 				CLUSTER	image_directory_cluster;
@@ -816,7 +856,7 @@ int main( int argc, char ** argv)
 			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_write, false);
 			break;
 		case COMMAND_MKDIR:
-			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_mkdir, false);
+			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], single_mkdir, false);
 			break;
 		case COMMAND_DELETE:
 			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_delete, false);
