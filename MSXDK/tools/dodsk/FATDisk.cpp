@@ -176,6 +176,29 @@ void init_fatdisk( void)
 void destroy_fatdisk( void)
 {
     g_formats.clear();
+    g_bootblocks.clear();
+}
+
+void report_stat_error( const string & object_name)
+{
+	switch ( errno)
+	{
+	case ENOENT:
+        cerr << object_name << " not found " << endl;
+        break;
+    case EACCES:
+    	cerr << "Access denied on some part of the path leading to " << object_name << endl;
+    	break;
+    case ENOTDIR:
+    	cerr << "A component of the path leading to " << object_name << " is not a directory" << endl;
+    	break;
+    case ENAMETOOLONG:
+    	cerr << "Filename too long for " << object_name << endl;
+    	break;
+    default:
+        cerr << "Failed to open " << object_name << " for some obscure reason (errno=" << errno << ")" << endl;
+        break;
+    }
 }
 
 FATDisk::FATDisk()
@@ -386,24 +409,7 @@ bool FATDisk::open( const string & dsk, const int mode, const int format_id, con
             }
             else
             {
-            	switch ( errno)
-            	{
-            	case ENOENT:
-                    cerr << "File " << dsk << " not found " << endl;
-                    break;
-                case EACCES:
-                	cerr << "Access denied on some part of the path leading to file " << dsk << endl;
-                	break;
-                case ENOTDIR:
-                	cerr << "A component of the path leading to file " << dsk << " is not a directory" << endl;
-                	break;
-                case ENAMETOOLONG:
-                	cerr << "Filename too long for file " << dsk << endl;
-                	break;
-                default:
-                    cerr << "Failed to open file " << dsk << " for some obscure reason (errno=" << errno << ")" << endl;
-                    break;
-                }
+            	report_stat_error( dsk);
                 ret = false;
             }
         }

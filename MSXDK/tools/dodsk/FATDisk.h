@@ -27,6 +27,8 @@
 void init_fatdisk( void);
 void destroy_fatdisk( void);
 
+void report_stat_error( const std::string & object_name);
+
 class FATDisk {
 public:
 	typedef	unsigned long	SECTOR;

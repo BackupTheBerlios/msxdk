@@ -27,6 +27,7 @@ using std::cout;
 using std::cerr;
 using std::endl;
 using std::ios;
+#include <sys/stat.h>
 #include <unistd.h>
 #include <set>
 using std::set;
@@ -52,7 +53,7 @@ enum {
     COMMAND_NONE,
     COMMAND_READ,
     COMMAND_WRITE,
-    COMMAND_MKDIR
+    COMMAND_DELETE
 };
 
 enum {
@@ -64,15 +65,36 @@ enum {
 static string			g_program_name      = "";
 static bool             g_help              = false;
 static bool             g_dsk_exist         = false;
-static bool             g_directory_exist   = false;
 static int              g_overwrite         = OPTION_OVERWRITE_PROMPT;
 static int              g_format            = FATDisk::FORMAT_NONE;
 static int				g_bootblock			= FATDisk::BOOTBLOCK_MSX1;
 //xxx implement bootblock option
 static int				g_command			= COMMAND_NONE;
-static string			g_dskdir_seperator	= "@";
 static string			g_dsk_filename		= "";
-static string			g_directory_in_dsk	= "";
+static string			g_image_directory	= "";
+static string			g_local_directory	= ".";
+
+bool check_local_directory( void)
+{
+	bool	ret = true;
+	
+    struct stat	file_stat;
+    if ( stat( g_local_directory.c_str(), &file_stat) == 0)
+    {
+    	// At least the "object" exists, now see if it's a directory.
+    	if ( !S_ISDIR( file_stat.st_mode))
+    	{
+    		cerr << g_local_directory << " found, but it's not a directory" << endl;
+    		ret = false;
+    	}
+    }
+    else
+    {
+    	report_stat_error( g_local_directory);
+    	ret = false;
+    }
+	return ret;
+}
 
 bool dodsk_read( int argc, char ** argv)
 {
@@ -82,32 +104,39 @@ bool dodsk_read( int argc, char ** argv)
     ret = fatdisk.open( g_dsk_filename, g_dsk_exist ? FATDisk::OPEN_MUSTEXIST : FATDisk::OPEN_READONLY, g_format, g_bootblock);
     if (ret)
     {
-    	//xxx
-    	int entries;
-    	if ( fatdisk.get_directory_entries( ROOT_DIRECTORY_CLUSTER, entries))
+    	ret = check_local_directory();
+    	if ( ret)
     	{
-    		cout << "Root directory contains " << entries << " entries" << endl;
-    		FATDisk::object_info_t	object_info;
-    		for ( int index = 0 ; index < entries; ++index)
-    		{
-    			if ( fatdisk.get_directory_entry( ROOT_DIRECTORY_CLUSTER, index, object_info))
-    			{
-    				if ( object_info.name[0] != '\0')
-    				{
-    					cout << object_info.name << "." << object_info.extension << endl;
-    					ofstream	output;
-    					char fname[12];
-    					sprintf( fname, "%s.%s", object_info.name, object_info.extension);
-    					output.open( fname, ios::out|ios::binary);
-    					if ( !output.fail())
-    					{
-    						fatdisk.read_object( object_info.first_cluster, object_info.size, output);
-    						output.close();
-    					}
-    				}
-    			}
-    		}
-    	}
+    		//ret = lookup_image_directory( image_directory_cluster);
+	    	/*
+	    	//xxx
+	    	int entries;
+	    	if ( fatdisk.get_directory_entries( ROOT_DIRECTORY_CLUSTER, entries))
+	    	{
+	    		cout << "Root directory contains " << entries << " entries" << endl;
+	    		FATDisk::object_info_t	object_info;
+	    		for ( int index = 0 ; index < entries; ++index)
+	    		{
+	    			if ( fatdisk.get_directory_entry( ROOT_DIRECTORY_CLUSTER, index, object_info))
+	    			{
+	    				if ( object_info.name[0] != '\0')
+	    				{
+	    					cout << object_info.name << "." << object_info.extension << endl;
+	    					ofstream	output;
+	    					char fname[12];
+	    					sprintf( fname, "%s.%s", object_info.name, object_info.extension);
+	    					output.open( fname, ios::out|ios::binary);
+	    					if ( !output.fail())
+	    					{
+	    						fatdisk.read_object( object_info.first_cluster, object_info.size, output);
+	    						output.close();
+	    					}
+	    				}
+	    			}
+	    		}
+	    	}
+	    	*/
+	    }
     	fatdisk.close();
     }
 
@@ -172,7 +201,7 @@ bool dodsk_write( int argc, char ** argv)
     ret = fatdisk.open( g_dsk_filename, g_dsk_exist ? FATDisk::OPEN_MUSTEXIST : 0, g_format, g_bootblock);
     //xxx open .dsk file
 
-    // translate g_directory_in_dsk to directory_cluster
+    // translate directory-in-dsk to directory_cluster
     // if not found then
     //   if g_directory_exist then
     //     print error("dir not exist")
@@ -182,7 +211,6 @@ bool dodsk_write( int argc, char ** argv)
     // endif
 
     cout << "g_dsk_filename = " << g_dsk_filename << endl;
-    cout << "g_directory_in_dsk = " << g_directory_in_dsk << endl;
 
     if (ret)
     {
@@ -208,7 +236,7 @@ bool dodsk_write( int argc, char ** argv)
     return ret;
 }
 
-bool dodsk_mkdir( int argc, char ** argv)
+bool dodsk_delete( int argc, char ** argv)
 {
     bool    ret = true;
 
@@ -225,20 +253,20 @@ void print_syntax( ostream & stream = cerr)
 {
     stream << "Writes a file to or reads a file from a .DSK file" << endl;
     stream << endl;
-    stream << g_program_name << " [-hoked] [-f NNN] [-s <dskdir seperator>] r[ead]|w[rite]|m[kdir]" << endl;
-    stream << "     [<dsk filename>[<dskdir seperator><directory>] <filename> [<filename>...]]" << endl;
+    stream << g_program_name << " [-hoked] [-f NNN] [-i <directory>] [-l <directory>]" << endl;
+    stream << "     r[ead]|w[rite]|d[elete]" << endl;
+    stream << "     [<dsk filename> <filename> [<filename>...]]" << endl;
     stream << endl;
-    stream << "  -h           Print this information" << endl;
-    stream << "  -o           Overwrite existing destination file(s)." << endl;
-    stream << "  -k           Keep existing destination file(s)" << endl;
-    stream << "  -d           The Directory in the .DSK image must already exist." << endl;
-    stream << "  -e           The .DSK image file must already Exist." << endl;
-    stream << "  -f NNN       If the .DSK file does not exist yet it will be created in" << endl;
-    stream << "               the given Format." << endl;
-    stream << "               360 = 360K, single sided, double density" << endl;
-    stream << "               720 = 720K, double sided, double density" << endl;
-    stream << "  -s seperator The character(s) that seperate the dsk filename and directory." << endl;
-    stream << "               The default seperator is @" << endl;
+    stream << "  -h             Print this information" << endl;
+    stream << "  -o             Overwrite existing destination file(s)." << endl;
+    stream << "  -k             Keep existing destination file(s)" << endl;
+    stream << "  -e             The .DSK image file must already Exist." << endl;
+    stream << "  -i <directory> The directory inside the Image to be used as the start directory." << endl;
+    stream << "  -l <directory> The local(host) directory to be used as the start directory." << endl;
+    stream << "  -f NNN         If the .DSK file does not exist yet it will be created in" << endl;
+    stream << "                 the given Format." << endl;
+    stream << "                 360 = 360K, single sided, double density" << endl;
+    stream << "                 720 = 720K, double sided, double density" << endl;
     stream << endl;
 }
 
@@ -248,7 +276,7 @@ bool process_options( int argc, char ** argv, int & arg_index)
 	
 	int		option;
 	
-	while ( (option = getopt( argc, argv, "hokdef:s:")) != -1)
+	while ( (option = getopt( argc, argv, "hokef:i:l:")) != -1)
 	{
 		switch (option)
 		{
@@ -260,9 +288,6 @@ bool process_options( int argc, char ** argv, int & arg_index)
 			break;
 		case 'k':
 			g_overwrite = OPTION_OVERWRITE_NEVER;
-			break;
-		case 'd':
-			g_directory_exist = true;
 			break;
 		case 'e':			
 			g_dsk_exist = true;
@@ -292,8 +317,11 @@ bool process_options( int argc, char ** argv, int & arg_index)
                 }
             }			
 			break;
-		case 's':
-			g_dskdir_seperator = optarg;
+		case 'i':
+			g_image_directory = optarg;
+			break;
+		case 'l':
+			g_local_directory = optarg;
 			break;
 		default:
 			ret = false;
@@ -321,8 +349,8 @@ bool process_arguments( int argc, char ** argv, int & arg_index)
         case 'w':
             g_command = COMMAND_WRITE;
             break;
-        case 'm':
-            g_command = COMMAND_MKDIR;
+        case 'd':
+            g_command = COMMAND_DELETE;
             break;
         default:
             cerr << "Unrecognized command: " << argv[arg_index] << endl;
@@ -351,13 +379,6 @@ bool process_arguments( int argc, char ** argv, int & arg_index)
             {
             	g_dsk_filename = argv[ arg_index];
                 arg_index++;
-                
-                size_t	seperator_pos = g_dsk_filename.find( g_dskdir_seperator);
-                if ( seperator_pos != string::npos)
-                {
-                	g_directory_in_dsk = g_dsk_filename.substr( seperator_pos + g_dskdir_seperator.size());
-                	g_dsk_filename.resize( seperator_pos);
-                }
             }
             else
             {
@@ -377,7 +398,7 @@ int main( int argc, char ** argv)
     string			program_name		= argv[0];
 
 #ifdef MINGW
-	// MinGW places the full executable path in argv[0], AAARGH!
+	// MinGW places the FULL executable path in argv[0], AAARGH!
 	size_t	program_name_pos = program_name.rfind( "\\");
 	if ( program_name_pos != string::npos)
 	{
@@ -409,8 +430,8 @@ int main( int argc, char ** argv)
         case COMMAND_WRITE:
             ret = dodsk_write( argc - arg_index, &argv[ arg_index]);
             break;
-        case COMMAND_MKDIR:
-            ret = dodsk_mkdir( argc - arg_index, &argv[ arg_index]);
+        case COMMAND_DELETE:
+            ret = dodsk_delete( argc - arg_index, &argv[ arg_index]);
             break;
         }
         destroy_fatdisk();
