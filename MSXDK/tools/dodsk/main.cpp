@@ -312,6 +312,17 @@ bool imageify( const string & filename, char name[8+1], char extension[3+1])
 			strcpy( extension, "   ");
 		}
 	}
+	if ( ret)
+	{
+		for ( int i = 0 ; i < 8 ; ++i)
+		{
+			name[i] = toupper( name[i]);
+		}
+		for ( int i = 0 ; i < 3; ++i)
+		{
+			extension[i] = toupper( extension[i]);
+		}
+	}
 	return ret;
 }
 
@@ -340,6 +351,21 @@ string hostify( const string & filename)
 	else
 	{
 		return hostify( filename.c_str(), "");
+	}
+}
+
+/** Turns all backslashes into forwardslashes
+	@param path	Path to be transformed.
+*/
+void forward_slash( string & path)
+{
+	if ( path.size() > 0)
+	{
+		size_t	pos;
+		while ( (pos = path.find( '\\')) != string::npos)
+		{
+			path[ pos] = '/';
+		}
 	}
 }
 
@@ -560,6 +586,7 @@ bool recursive_read( const string host_directory, const string image_directory, 
 			                outfile.open( hostfile.c_str(), ios::out|ios::binary);
 			                if ( outfile.is_open())
 			                {
+			                	cout << image_directory << object_info.name << "." << object_info.extension << " -> " << hostfile << endl;
 								ret = g_fatdisk.read_object( object_info.first_cluster, object_info.size, 
 										outfile);
 								outfile.close();
@@ -678,7 +705,7 @@ bool execute_mkdir( const CLUSTER directory_cluster, const string & image_direct
 bool recursive_write( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
 {
 	bool	ret = true;
-	
+
 	DIR * opened_dir = opendir( host_directory.size() ? host_directory.c_str() : "./");
 	if ( opened_dir != NULL)
 	{
@@ -745,6 +772,7 @@ bool recursive_write( const string host_directory, const string image_directory,
 						                infile.open( hostfile.c_str(), ios::in|ios::binary);
 						                if ( infile.is_open())
 						                {
+						                	cout << hostfile << " -> " << image_directory << object_info.name << "." << object_info.extension << endl;
 						                	ret = g_fatdisk.write_object( object_info.first_cluster, file_stat.st_size, infile);
 						                	infile.close();
 						                }
@@ -853,7 +881,9 @@ bool preprocess_filename( const char * filename, string & host_directory, string
 	bool	ret = true;
 
 	string	directory;
-	split_path( filename, directory, leafname);
+	string	corrected_filename = filename;
+	forward_slash( corrected_filename); 	
+	split_path( corrected_filename.c_str(), directory, leafname);
 	if ( (g_host_directory.size() > 0) || enforce_host_directory)
 	{
 		host_directory = g_host_directory + hostify( directory);
@@ -876,7 +906,6 @@ bool dodsk_misc(
 	const bool read_only)
 {
 	bool    ret = true;
-
 	ret = g_fatdisk.open( g_dsk_filename, (g_dsk_exist ? FATDisk::OPEN_MUSTEXIST : 0) | (read_only ? FATDisk::OPEN_READONLY : 0), g_format, g_bootblock);
 	if (ret)
 	{
