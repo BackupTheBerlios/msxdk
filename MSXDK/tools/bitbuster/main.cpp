@@ -65,8 +65,8 @@ void print_syntax( ostream & stream = cerr )
 	stream << "  -e <extension> Set the extension used for (de)compressed file(s)" << endl;
 	stream << "                 Default extension for compressed files is pck" << endl; 
 	stream << "                 Default extension for decompressed files is org" << endl;
-	stream << "  -b <size>      Set size of data to be compressed per chunk" << endl;
-	stream << "                 Default block length is original file size" << endl;      
+	stream << "  -b <size>      Set size of data to be compressed per chunk [128,32768]" << endl;
+	stream << "                 Default block length is 32768" << endl;      
         stream << endl;
 }
 
