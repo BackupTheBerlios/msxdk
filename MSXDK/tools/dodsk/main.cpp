@@ -533,14 +533,15 @@ cout << "file found: " << hostfile << endl;
 }
 
 bool preprocess_filename( const char * filename, string & host_directory, string & image_directory,
-							 string & leafname, CLUSTER & image_directory_cluster)
+							 string & leafname, CLUSTER & image_directory_cluster,
+							 const bool enforce_host_directory)
 {
 	bool	ret = true;
 
 cout << "preprocess_filename: " << filename << endl;
 	string	directory;
 	split_path( filename, directory, leafname);
-	if ( g_host_directory.size() > 0)
+	if ( (g_host_directory.size() > 0) || enforce_host_directory)
 	{
 		host_directory = g_host_directory + hostify( directory);
 		image_directory = g_image_directory + directory;
@@ -552,54 +553,6 @@ cout << "preprocess_filename: " << filename << endl;
 		image_directory = g_image_directory;
 		image_directory_cluster = g_image_directory_cluster;
 	}
-	return ret;
-}
-
-bool write_files( CLUSTER directory_cluster, char * wildcardedname)
-{
-	bool    ret = true;
-
-/*XXX
-	char directory[PATHSIZE];
-	char path[PATHSIZE];
-	LPTSTR  lpFilePart;
-
-	GetFullPathName( wildcardedname, PATHSIZE, directory, &lpFilePart);
-	*lpFilePart = '\0';
-
-	WIN32_FIND_DATA FindFileData;
-	HANDLE hFind;
-
-	hFind = FindFirstFile(wildcardedname, &FindFileData);
-
-	if (hFind != INVALID_HANDLE_VALUE)
-	{
-		do {
-			sprintf( path, "%s%s", directory, FindFileData.cFileName);
-			//xxx ret = write_file( path, FindFileData.cFileName, directory_cluster);
-		} while ( FindNextFile( hFind, &FindFileData));
-		FindClose(hFind);
-	}
-	else
-	{
-		switch (GetLastError())
-		{
-		case ERROR_FILE_NOT_FOUND:
-			fprintf( stderr, "No file or directory found matching the (wildcarded) name %s\n", wildcardedname);
-			break;
-		case ERROR_PATH_NOT_FOUND:
-			fprintf( stderr, "Path not found for the (wildcarded) name %s\n", wildcardedname);
-			break;
-		case ERROR_INVALID_NAME:
-			fprintf( stderr, "Incorrect syntax for the (wildcarded) name %s\n", wildcardedname);
-			break;
-		default:
-			fprintf( stderr, "Failed to find a file or directory for the (wildcarded) name %s. GetLastError reports %d\n", wildcardedname, GetLastError());
-			break;
-		}
-		ret = false;
-	}
-*/
 	return ret;
 }
 
@@ -800,13 +753,9 @@ cout << "recursive write: " << host_directory << "," << name << endl;
 bool single_mkdir( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
 {
 	bool    ret = true;
-	
-	//xxx WARNING: SHOULD NOT USE DODSK_MISC, SINCE ALL PARAMS SHOULD BE RELATIVE, I.E. NOT FULL
-	//xxx PATHS LIKE C:/HAHA ALLOWED!   OR HAVE DODSK_MISC TAKE ANOTHER BOOLEAN THAT INDICATES
-	//xxx SOMETHING LIKE THIS.
-	cerr << "mkdir not implemented yet" << endl;
-	ret = false;
-	//xxx
+
+	CLUSTER subdirectory_cluster;
+	ret = execute_mkdir( cluster, image_directory, name, subdirectory_cluster, true);
 	return ret;
 }
 
@@ -824,6 +773,7 @@ bool recursive_delete( const string host_directory, const string image_directory
 bool dodsk_misc( 
 	int argc, char ** argv, 
 	bool (*process)( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster),
+	const bool enforce_host_directory,
 	const bool read_only)
 {
 	bool    ret = true;
@@ -840,7 +790,7 @@ bool dodsk_misc(
 				CLUSTER	image_directory_cluster;
 				if ( 
 					!preprocess_filename( argc ? argv[ arg_index] : "*", host_directory, image_directory, 
-						leafname, image_directory_cluster) ||
+						leafname, image_directory_cluster, enforce_host_directory) ||
 					!process( host_directory, image_directory, leafname.c_str(), image_directory_cluster)
 					)
 				{
@@ -1051,16 +1001,16 @@ int main( int argc, char ** argv)
 			// Nothing to do
 			break;
 		case COMMAND_READ:
-			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_read, true);
+			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_read, false, true);
 			break;
 		case COMMAND_WRITE:
-			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_write, false);
+			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_write, false, false);
 			break;
 		case COMMAND_MKDIR:
-			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], single_mkdir, false);
+			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], single_mkdir, true, false);
 			break;
 		case COMMAND_DELETE:
-			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_delete, false);
+			ret = dodsk_misc( argc - arg_index, &argv[ arg_index], recursive_delete, true, false);
 			break;
 		}
 		destroy_fatdisk();
