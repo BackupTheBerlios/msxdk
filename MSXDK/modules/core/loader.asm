@@ -23,7 +23,7 @@
 ;	ORG to $0100 and starts with a jump to the start code. It automatically 
 ;	includes, initialises and kills the <environment> and can also be told to do
 ;	this with the other core modules. See the defines <INCLUDE_CHIPS_MODULE>,
-;	<INCLUDE_INTERRUPT_MODULE>, <INCLUDE_KEYBOARD_MODULE>, 
+;	<INCLUDE_INTERRUPT_MODULE>, <INCLUDE_INPUTDEVICES_MODULE>, 
 ;	<INCLUDE_MAPPER_MODULE> and <INCLUDE_VDP_MODULE> on how to get
 ;	specific core modules automatically included, initialised and killed.
 ;	Note that this module also always includes <msxdefs> and <macros>, so
@@ -61,9 +61,9 @@
 ;	Define this if you want the loader module to automatically include,
 ;	initialise and kill the <interrupt> module.
 ;
-; DEFINE:	INCLUDE_KEYBOARD_MODULE
+; DEFINE:	INCLUDE_INPUTDEVICES_MODULE
 ;	Define this if you want the loader module to automatically include,
-;	initialise and kill the <keyboard> module.
+;	initialise and kill the <inputdevices> module.
 ;
 ; DEFINE:	INCLUDE_MAPPER_MODULE
 ;	Define this if you want the loader module to automatically include,
@@ -96,8 +96,8 @@
 		include	interrupt.asm
 		ENDIF
 		
-		IFDEF	INCLUDE_KEYBOARD_MODULE
-		include keyboard.asm
+		IFDEF	INCLUDE_INPUTDEVICES_MODULE
+		include inputdevices.asm
 		ENDIF
 		
 		IFDEF	INCLUDE_MAPPER_MODULE		
@@ -193,8 +193,8 @@ start:
 		jr	nz, .error
 		ENDIF
 		
-		IFDEF	INCLUDE_KEYBOARD_MODULE
-		call	init_keyboard
+		IFDEF	INCLUDE_INPUTDEVICES_MODULE
+		call	init_inputdevices
 		or	a
 		jr	nz, .error
 		ENDIF
@@ -207,8 +207,8 @@ start:
 .error:
 		push	de
 		
-		IFDEF	INCLUDE_KEYBOARD_MODULE
-		call	kill_keyboard
+		IFDEF	INCLUDE_INPUTDEVICES_MODULE
+		call	kill_inputdevices
 		ENDIF		
 		IFDEF	INCLUDE_INTERRUPT_MODULE
 		call	kill_interrupt

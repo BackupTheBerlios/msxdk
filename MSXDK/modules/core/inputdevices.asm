@@ -17,18 +17,19 @@
 ;	IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 ;	CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-		MODULE	keyboard
-; File: keyboard
-;	The keyboard module contains routines related to the keyboard.
+		MODULE	inputdevices
+; File: inputdevices
+;	The inputdevices module contains routines related to several input devices, like
+;	the keyboard, joysticks etc.
 ;
 ; COPYRIGHT:
 ;	This module has been released by Eli-Jean Leyssens under the MIT License;
 ;	please see the top of the source file(s) for the full copyright statement.
 
-;****if* keyboard/init_keyboard
+;****if* inputdevices/init_inputdevices
 ;
-; Function:	init_keyboard
-;	Initialises the keyboard module.
+; Function:	init_inputdevices
+;	Initialises the inputdevices module.
 ;
 ; Entry:
 ;	None
@@ -40,14 +41,14 @@
 ; Modifies:
 ;	#ALL#
 ;
-@init_keyboard:
+@init_inputdevices:
 		xor	a
 		ret
 		
-;****if* keyboard/kill_keyboard
+;****if* inputdevices/kill_inputdevices
 ;
-; FUNCTION:	kill_keyboard
-;	Kills the keyboard module.
+; FUNCTION:	kill_inputdevices
+;	Kills the inputdevices module.
 ;
 ; ENTRY:
 ;	None
@@ -58,7 +59,7 @@
 ; MODIFIES:
 ;	#ALL#
 ;
-@kill_keyboard:
+@kill_inputdevices:
 		ret
 
 ; FUNCTION:	read_keyrow
@@ -70,14 +71,13 @@
 ;	B - Keyboard row number
 ;	C - Mask
 ;	DI - or interrupt handler that doesn't corrupt the PPIPRC port
-;	DI -
 ;
 ; EXIT:
 ;	A - (keyboard row XOR $ff) AND mask
 ;	FZ - Set if #A# = 0, clear otherwise
 ;
 ; MODIFIES:
-;	#None#
+;	#None# XXX should mention PPIRRB/C here
 ;
 @read_keyrow:	EXPORT	read_keyrow
 		in	a,(PPIPRC)
