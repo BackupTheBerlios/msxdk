@@ -891,12 +891,12 @@ bool FATDisk::get_directory_entry( const CLUSTER directory, const int index, obj
 			object_info.extension[3] = '\0';
 			object_info.first_cluster	= LDRWORD( entry + DIRECTORY_ENTRY_FIRST_CLUSTER);
 			object_info.size 			= LDRDWORD( entry + DIRECTORY_ENTRY_SIZE);
-			object_info.attributes.read_only 	= entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_READ_ONLY;
-			object_info.attributes.hidden 		= entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_HIDDEN;
-			object_info.attributes.system 		= entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_SYSTEM;
-			object_info.attributes.volume_label = entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_VOLUME_LABEL;
-			object_info.attributes.directory 	= entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_DIRECTORY;
-			object_info.attributes.archive		= entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_ARCHIVE;			
+			object_info.attributes.read_only 	= (entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_READ_ONLY) ? true : false;
+			object_info.attributes.hidden 		= (entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_HIDDEN) ? true : false;
+			object_info.attributes.system 		= (entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_SYSTEM) ? true : false;
+			object_info.attributes.volume_label = (entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_VOLUME_LABEL) ? true : false;
+			object_info.attributes.directory 	= (entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_DIRECTORY) ? true : false;
+			object_info.attributes.archive		= (entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_ARCHIVE) ? true : false;			
 		}
 	}
 	return ret;

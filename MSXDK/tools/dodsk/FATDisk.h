@@ -102,6 +102,7 @@ public:
 			int volume_label : 1;
 			int directory : 1;
 			int archive : 1;
+			int reserved : 2;
 		} attributes;
 		//xxx creation date etc
 	};    

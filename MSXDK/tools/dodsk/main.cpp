@@ -88,18 +88,19 @@ bool check_host_directory( void)
 	if ( strlen( g_host_directory.c_str()) > 0)
 	{
 		struct stat	file_stat;
-		if ( stat( g_host_directory.c_str(), &file_stat) == 0)
+		string	directory = g_host_directory.substr( 0, g_host_directory.size() - 1);
+		if ( stat( directory.c_str(), &file_stat) == 0)
 		{
 			// At least the "object" exists, now see if it's a directory.
 			if ( !S_ISDIR( file_stat.st_mode))
 			{
-				cerr << g_host_directory << " found, but it's not a directory" << endl;
+				cerr << directory << " found, but it's not a directory" << endl;
 				ret = false;
 			}
 		}
 		else
 		{
-			report_stat_error( g_host_directory);
+			report_stat_error( directory);
 			ret = false;
 		}
 	}
@@ -115,14 +116,119 @@ bool execute_write( const char * filename)
 	return ret;
 }
 
+size_t non_right_space( const char * text)
+{
+	size_t	pos = strlen( text);
+	while ( pos && text[pos-1] == ' ')
+	{
+		pos--;
+	}
+	return pos;
+}
+
+/** Checks whether the fixed string matches the (possibly wildcarded) wild string.
+	@param wild	Wild(carded) string
+	@param fixed Fixed string
+	@return <code>true</code> if it matches, <code>false</code> otherwise
+*/
+bool match( string wild, string fixed)
+{
+	for ( size_t pos = 0 ; pos < wild.size(); ++pos)
+	{
+		wild[pos] = tolower( wild[pos]);
+	}
+	for ( size_t pos = 0 ; pos < fixed.size(); ++pos)
+	{
+		fixed[pos] = tolower( fixed[pos]);
+	}
+	
+	const char * pat = wild.c_str();
+	const char * str = fixed.c_str();
+	
+	/* The following piece of wildcard-match-code was taken from
+	   some website. The note that came with it read:
+
+			I got it from a Walnut Creek CD (C/C++ user group library).
+			The original code is from "C/C++ Users Journal".
+			The author is Mike Cornelison.
+			No use restriction is mentioned in the source file or other documentation
+			I found in the CD.
+			I modified it to prevent matching between '?' and '.' and to use
+			the mapCaseTable[] array (the original routine didn't perform case
+			insensitive matching) .
+			
+		Since I've removed both said modifications I assume the code is back in
+		its original form, i.e. as Mike Cornelison wrote it and hence the "no use
+		restriction" should apply again.		
+	*/
+	int i, star;
+
+new_segment:
+
+	star = 0;
+	if (*pat == '*')
+	{
+		star = 1;
+		do { 
+			pat++; 
+		} while (*pat == '*');
+	}
+
+test_match:
+
+	for (i = 0; pat[i] && (pat[i] != '*'); i++) 
+	{
+		if (str[i] != pat[i])
+		{
+			if (!str[i]) return false;
+			if (pat[i] == '?') continue;
+			if (!star) return false;
+			str++;
+			goto test_match;
+		}
+	}
+	if (pat[i] == '*') {
+		str += i;
+		pat += i;
+		goto new_segment;
+	}
+	if (!str[i]) return true;
+	if (i && pat[i - 1] == '*') return true;
+	if (!star) return false;
+	str++;
+	goto test_match;
+}
+
+/** Checks whether the given name + extension matches the (possibly wildcarded) filename.
+	@param filename  Wildcarded filename to match against.
+	@param name 	 Name part to match.
+	@param extension Extension part to match
+	@return <code>true</code> if it matches, <code>false</code> otherwise
+*/
 bool matches( const char * filename, const char * name, const char * extension)
 {
 	bool	ret = true;
+	string	short_name = string( name).substr( 0, non_right_space( name));
+	string 	short_extension = string( extension).substr( 0, non_right_space( extension));
 	
-	//xxx
+	string	wild = filename;	
+	size_t dotpos = wild.find( '.');
+	if ( dotpos == string::npos)
+	{
+		ret = match( wild, short_name + short_extension);
+	}
+	else
+	{
+		ret = match( wild.substr( 0, dotpos), short_name) &&
+			match( wild.substr( dotpos + 1), short_extension);
+	}
 	return ret;
 }
 
+/** Checks whether a given filename contains any wildcards.
+	@param filename Filename to be checked.
+	@return <code>true</code> if it contains one or more wildcards, <code>false</code> otherwise
+*/
 bool is_wildcarded( const char * filename)
 {
 	bool	ret = false;
@@ -156,16 +262,6 @@ void split_path( const string & path, string & directory, string & leafname)
 		directory = path.substr( 0, seperator_pos + 1);
 		leafname = path.substr( seperator_pos + 1);
 	}
-}
-
-size_t non_right_space( const char * text)
-{
-	size_t	pos = strlen( text);
-	while ( pos && text[pos-1] == ' ')
-	{
-		pos--;
-	}
-	return pos;
 }
 
 string hostify( const char * name, const char * extension)
@@ -256,6 +352,8 @@ bool directory_to_cluster( const CLUSTER & start_cluster, const string & directo
 						if ( 
 							( strcmp( object_info.name, ".          ") != 0) &&
 							( strcmp( object_info.name, "..         ") != 0) &&
+							( object_info.name[0] != '\0') &&
+							( object_info.name[0] != DELETED_ENTRY_CHAR) &&
 							( matches( directory_name.c_str(), object_info.name, object_info.extension))
 							)
 						{
@@ -279,9 +377,12 @@ bool recursive_read( const string host_directory, const string image_directory, 
 {
 	bool	ret = true;
 	
+//xxx
+cout << "recursive_read: " << host_directory << "," << image_directory << "," << cluster << "," << name << endl;
 	bool	found = false;
 	int	entries;
 	ret = g_fatdisk.get_directory_entries( cluster, entries);
+cout << "entries: " << entries << endl;
 	if ( ret)
 	{
 		FATDisk::object_info_t	object_info;
@@ -291,8 +392,10 @@ bool recursive_read( const string host_directory, const string image_directory, 
 			if ( ret)
 			{
 				if ( 
-					( strcmp( object_info.name, ".          ") != 0) &&
-					( strcmp( object_info.name, "..         ") != 0)
+					( (strcmp( object_info.name, ".       ") != 0) || (strcmp( object_info.extension, "   ") != 0)) &&
+					( (strcmp( object_info.name, "..      ") != 0) || (strcmp( object_info.extension, "   ") != 0)) &&
+					( object_info.name[0] != '\0') &&
+					( object_info.name[0] != DELETED_ENTRY_CHAR)
 					)
 				{
 					if ( matches( name, object_info.name, object_info.extension))
@@ -301,24 +404,38 @@ bool recursive_read( const string host_directory, const string image_directory, 
 						string	hostfile = host_directory + hostify( object_info.name, object_info.extension);
 						if ( object_info.attributes.directory)
 						{							
-							if ( 
-#ifdef MINGW							
-								mkdir( hostfile.c_str())
+cout << "directory found: " << hostfile << endl;
+					        struct stat	dir_stat;
+        					if ( stat( hostfile.c_str(), &dir_stat) == 0)
+        					{
+        						if ( !S_ISDIR( dir_stat.st_mode))
+        						{
+        							cerr << "Can not create directory " << hostfile << ", since it already exists as a file/symlink/..." << endl;
+        							ret = false;
+        						}
+        					}
+        					else
+        					{
+								if ( 
+#ifdef MINGW
+									mkdir( hostfile.c_str())
 #else
-								mkdir( hostfile.c_str(), 0777)
+									mkdir( hostfile.c_str(), 0777)
 #endif
-								 == 0)
+									 != 0)
+								{
+									cerr << "Failed to mkdir " << hostfile << endl;
+									ret = false;
+								}
+							}
+							if ( ret)
 							{
 								ret = recursive_read( hostfile + "/", image_directory + hostify( object_info.name, object_info.extension) + "/", object_info.first_cluster, "*");
-							}
-							else
-							{
-								cerr << "Failed to mkdir " << hostfile << endl;
-								ret = false;
 							}
 						}
 						else
 						{
+cout << "file found: " << hostfile << endl;
 							ofstream	outfile;
 			                outfile.open( hostfile.c_str(), ios::out|ios::binary);
 			                if ( outfile.is_open())
@@ -338,7 +455,7 @@ bool recursive_read( const string host_directory, const string image_directory, 
 		}
 		if ( ret)
 		{
-			if ( !found && is_wildcarded( name))
+			if ( !found && !is_wildcarded( name))
 			{
 				cerr << image_directory << name << " not found." << endl;
 				ret = false;
