@@ -444,42 +444,22 @@ public:
 	match_link *previous;
 	match_link *literal;
 	match_link *match;
-
-	match_link();
-	~match_link();
 };
-
-
-match_link::match_link()
-{
-	literal = NULL;
-	match = NULL;
-}
-
-
-match_link::~match_link()
-{
-	if ( literal != NULL )
-		delete literal;
-
-	if ( match != NULL )
-		delete match;
-}
 
 
 int depth;
 match_link *best;
 
 
+match_link match_link_pool[ 2048 ];
+int match_link_index;
+
+
 void find_best( match_link *current )
 {
 	if ( ++depth == 8 || current->position == length )
 	{
-		if ( current->position > best->position )
-		{
-			best = current;
-		}
-		else
+		if ( current->position >= best->position )
 		{
 			if ( current->position == best->position )
 			{
@@ -488,11 +468,13 @@ void find_best( match_link *current )
 					best = current;
 				}
 			}
+			else
+				best = current;
 		}
 	}
 	else
 	{
-		match_link *literal = new match_link();
+		match_link *literal = &match_link_pool[ match_link_index++ ];	// new match_link();//
 
 		literal->cost = current->cost + 9;
 		literal->position = current->position + 1;
@@ -504,7 +486,7 @@ void find_best( match_link *current )
 
 		if ( match_results[ current->position ].first > 1 )
 		{
-			match_link *match = new match_link();
+			match_link *match = &match_link_pool[ match_link_index++ ]; //new match_link();
 
 			if ( current->position - match_results[ current->position ].second > 128 )
 				match->cost = current->cost + 1 + 12;
@@ -540,6 +522,8 @@ int position = 0;
 
 		depth = 0;
 
+		match_link_index = 0;
+
 		best = &start;
 
 		find_best( &start );
@@ -553,16 +537,10 @@ int position = 0;
 				current = current->previous;
 
 				match_results[ current->position ].first = 0;
-
-				delete current->match;
-				current->match = NULL;
 			}
 			else
 			{
 				current = current->previous;
-
-				delete current->literal;
-				current->literal = NULL;
 			}
 
 		}
