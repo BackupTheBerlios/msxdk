@@ -903,6 +903,11 @@ bool dodsk_misc(
 	return ret;
 }
 
+void print_try( void)
+{
+	cerr << "Try '" << g_program_name << " -h' for more information." << endl;
+}
+
 void print_syntax( ostream & stream = cerr)
 {
 	stream << "Writes a file to or reads a file from a .DSK file" << endl;
@@ -1031,6 +1036,10 @@ bool process_options( int argc, char ** argv, int & arg_index)
 		}
 	}
 	arg_index = parser.Index();
+	if ( !ret)
+	{
+		print_try();
+	}
 	return ret;
 }
 
@@ -1068,7 +1077,7 @@ bool process_arguments( int argc, char ** argv, int & arg_index)
 	{
 		if ( !g_help)
 		{
-			print_syntax();
+			cerr << "Missing command and disk-image name." << endl;
 			ret = false;
 		}
 	}
@@ -1092,29 +1101,7 @@ bool process_arguments( int argc, char ** argv, int & arg_index)
 			}
 		}
 	}
-	return ret;
-}
-
-int main( int argc, char ** argv)
-{
-	bool            ret                 = true;
-	int             arg_index           = 1;
-
-	string			program_name		= argv[0];
-
-#ifdef MINGW
-	// MinGW places the FULL executable path in argv[0], AAARGH!
-	size_t	program_name_pos = program_name.rfind( "\\");
-	if ( program_name_pos != string::npos)
-	{
-		 program_name= program_name.substr( program_name_pos + 1);
-	}
-#endif
-	g_program_name = program_name;
-	if ( 
-		(ret = process_options( argc, argv, arg_index)) &&
-		(ret = process_arguments( argc, argv, arg_index))
-		)
+	if ( ret)
 	{
 		if ( g_help)
 		{
@@ -1143,6 +1130,34 @@ int main( int argc, char ** argv)
 			break;
 		}
 		destroy_fatdisk();
+	}
+	else
+	{
+		print_try();
+	}
+	return ret;
+}
+
+int main( int argc, char ** argv)
+{
+	bool            ret                 = true;
+	int             arg_index           = 1;
+
+	string			program_name		= argv[0];
+
+#ifdef MINGW
+	// MinGW places the FULL executable path in argv[0], AAARGH!
+	size_t	program_name_pos = program_name.rfind( "\\");
+	if ( program_name_pos != string::npos)
+	{
+		 program_name= program_name.substr( program_name_pos + 1);
+	}
+#endif
+	g_program_name = program_name;
+	ret = process_options( argc, argv, arg_index);
+	if ( ret)
+	{
+		ret = process_arguments( argc, argv, arg_index);
 	}
 	
 	return ret ? 0 : 1;
