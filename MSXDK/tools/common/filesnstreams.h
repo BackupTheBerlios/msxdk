@@ -28,5 +28,6 @@ bool save_file( const char * path, char * data, size_t size);
 #include <fstream>
 void write_littleendian( std::ofstream & stream, const int bytes, const long value);
 void read_littleendian( std::ifstream & stream, const int bytes, long & value);
+void read_littleendian( std::ifstream & stream, const int bytes, unsigned long & value);
 
 #endif // _FILESNSTREAMS_H_

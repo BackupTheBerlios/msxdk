@@ -113,3 +113,13 @@ void read_littleendian( std::ifstream & stream, const int bytes, long & value)
 	value = value | ( ((long)buf[(bytes-1)]) << ((bytes-1) << 3));
 }
 
+void read_littleendian( std::ifstream & stream, const int bytes, unsigned long & value)
+{
+	char	buf[ 4];
+	stream.read( buf, bytes);
+	value = 0;
+	for ( int i = 0 ; i < bytes; ++i)
+	{
+		value = value | ( ((unsigned long)((unsigned char)buf[i])) << (i << 3));
+	}
+}
