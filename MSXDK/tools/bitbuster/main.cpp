@@ -49,6 +49,7 @@ static string g_program_name = "";	// variable to hold the program name
 static int max_depth = 12;              // maximum search depth for compression
 static string extension = "pck";        // default compressed file extension
 static bool g_syntax = false;           // (don't) show the program syntax
+static bool g_output_names = false;		// forces every second filename to be taken as the output filename
 
 
 unsigned char *data;			// data to crunch
@@ -288,21 +289,15 @@ unsigned int mask = 32768;
 }
 
 // output compressed data to file name
-int write_file( string name )
+int write_file( const string & output_name )
 {
 int position = 0;
 int offset;
-int ext_index = name.rfind( "." );	// find rightmost . in name
-string output_name;
 ifstream infile;
 int output_length;
 	
-	// if no extension found
-	if ( ext_index < 0 )
-		output_name = name + "." + extension;	// add extension
-	else
-		output_name = name.substr( 0, ext_index + 1 ) + extension;	// else replace extension
-		
+	cout << "Writing to " << output_name << "..." << endl;
+	
 	// open file for binary output
 	outfile.open( output_name.c_str() , ios::binary | ios::out );
 
@@ -672,7 +667,7 @@ int position = 0;
 
 
 // compress a file
-void compress( string file )
+void compress( const string & file, const string & output_file )
 {
 int compressed_length;
 
@@ -712,8 +707,8 @@ int compressed_length;
 	strip_matches();      
 
 	// write compressed data
-	compressed_length = write_file( file );
-	
+	compressed_length = write_file( output_file );
+                           
 	// output statistics if writing file succeeded
 	if ( compressed_length > 0 )
 		cout << length << " -> " << compressed_length << endl;
@@ -737,10 +732,12 @@ void print_syntax( ostream & stream = cerr )
 {
 	stream << "Compress file(s)" << endl;
 	stream << endl;
-	stream << g_program_name << " [-h] [-s <strength>] [-e <extension>]";
+	stream << g_program_name << " [-ho] [-s <strength>] [-e <extension>]";
 	stream << " <filename> [<filename>...]" << endl;
         stream << endl;
 	stream << "  -h             Print this information" << endl;
+	stream << "  -o             Forces every second filename to be treated as the Output filename" << endl;
+	stream << "                 for the filename preceding it" << endl;
 	stream << "  -s <strength>  Set the compression strength (2...16)" << endl;
 	stream << "                 Default strength is 12" << endl;
 	stream << "  -e <extension> Set the extension used for compressed file(s)" << endl;
@@ -757,12 +754,16 @@ OptionParser parser( argc, argv );
 int option;
 	
 	// get next option
-	while ( ( option = parser.GetOption( "hs:e:" ) ) != -1 )
+	while ( ( option = parser.GetOption( "hos:e:" ) ) != -1 )
 	{
 		switch ( option )
 		{
 			case 'h':	// print program syntax
 			        g_syntax = true;
+				break;
+			
+			case 'o':	// every second filename is an output name
+					g_output_names = true;
 				break;
 				
 			case 's':       // set compression strength
@@ -814,18 +815,44 @@ bool process_arguments( int argc, char ** argv, int & arg_index )
 	// if files to be compressed are specified
 	if ( arg_index < argc )
 	{
-		// compress all files
-		while ( arg_index < argc )
-		        compress( argv[ arg_index++ ] );
+		if ( !g_output_names || (( argc + 1 - arg_index) & 1))
+		{
+			// compress all files
+			while ( arg_index < argc )
+			{
+				string output_name = argv[ arg_index + ( g_output_names ? 1 : 0)];
+				if ( !g_output_names)
+				{
+					int ext_index = output_name.rfind( "." );	// find rightmost . in name
+					// if no extension found
+					if ( ext_index < 0 )
+						output_name = output_name + "." + extension;	// add extension
+					else
+						output_name = output_name.substr( 0, ext_index + 1 ) + extension;	// else replace extension
+				}				
+				compress( argv[ arg_index], output_name );
+				arg_index += ( g_output_names ? 2 : 1);
+			}
+		}
+		else
+		{
+			cerr << "Option -o was specified, but an uneven number of filenames was given" << endl;
+			ret = false;
+		}
 	}
 	else
-	{    
-		// print some info
+	{
 		if ( !g_syntax )
-			print_try();
-			
-		ret = false;		
+		{
+			cerr << "No filenames were given" << endl;
+			ret = false;
+		}
 	}	
+	if ( !ret)
+	{
+		// print some info
+		print_try();
+	}
 
 	return ret;	
 }
