@@ -190,33 +190,13 @@ depack_loop:    GET_BIT_FROM_BITSTREAM		; get compression type bit
 		jp	c,output_compressed	; if set, we got lz77 compression
 		ldi				; copy byte from compressed data to destination (literal byte)
 		ENDIF
+
 		jp	depack_loop
 	
 
 ;handle compressed data
 output_compressed:
-		ld	c,(hl)			; get lowest 7 bits of offset, plus offset extension bit
-		inc	hl			; to next byte in compressed data
-
-output_match:   ld	b,d
-		bit	7,c
-		jr	z,output_match1		; no need to get extra bits if carry not set
-	
-		GET_BIT_FROM_BITSTREAM		; get offset bit 10 
-		rl	b
-		GET_BIT_FROM_BITSTREAM		; get offset bit 9
-		rl	b
-		GET_BIT_FROM_BITSTREAM		; get offset bit 8
-		rl	b
-		GET_BIT_FROM_BITSTREAM		; get offset bit 7
-	
-		jp	c,output_match1		; since extension mark already makes bit 7 set 
-		res	7,c			; only clear it if the bit should be cleared
-output_match1:
-		inc	bc
-	
-	
-		; calculate length value
+; calculate length value
 		exx  				; to second register set!
 		ld 	h,d
 		ld 	l,e             	; initial length to 1
@@ -234,6 +214,26 @@ get_gamma_value_end:
 	  	inc 	hl  			; length was stored as length-2 so correct this  	
 	  	exx   				; back to normal register set
 
+		ld	c,(hl)			; get lowest 7 bits of offset, plus offset extension bit
+		inc	hl			; to next byte in compressed data
+	  	
+		ld	b,0
+		bit	7,c
+		jr	z,output_match1		; no need to get extra bits if carry not set
+	
+		GET_BIT_FROM_BITSTREAM		; get offset bit 10 
+		rl	b
+		GET_BIT_FROM_BITSTREAM		; get offset bit 9
+		rl	b
+		GET_BIT_FROM_BITSTREAM		; get offset bit 8
+		rl	b
+		GET_BIT_FROM_BITSTREAM		; get offset bit 7
+	
+		jp	c,output_match1		; since extension mark already makes bit 7 set 
+		res	7,c			; only clear it if the bit should be cleared
+output_match1:
+		inc	bc
+	
 		push	hl			; address compressed data on stack
 	
 		exx
@@ -242,14 +242,15 @@ get_gamma_value_end:
 	
 		ld	h,d
 		ld	l,e			; destination address in HL...
+		or	a
 		sbc	hl,bc			; calculate source address
-	
+			
 		pop	bc			; match length from stack
 	
 		ldir				; transfer data
 	
 		pop	hl			; address compressed data back from stack
-	
+	        
 		IFDEF	BITBUSTER_OPTIMIZE_SPEED
 		GET_BIT_FROM_BITSTREAM		; get compression type bit
 		jp	c,output_compressed	; if set, we got lz77 compression
