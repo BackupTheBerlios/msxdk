@@ -90,7 +90,7 @@ bool save_file( const char * path, char * data, size_t size)
 	return ret;
 }
 
-void stream_write_littleendian( std::ofstream & stream, const int bytes, const long value)
+void write_littleendian( std::ofstream & stream, const int bytes, const long value)
 {
 	char	buf[ 4];
 	
@@ -101,7 +101,7 @@ void stream_write_littleendian( std::ofstream & stream, const int bytes, const l
 	stream.write( buf, bytes);
 }
 
-void stream_read_littleendian( std::ifstream & stream, const int bytes, long & value)
+void read_littleendian( std::ifstream & stream, const int bytes, long & value)
 {
 	char	buf[ 4];
 	stream.read( buf, bytes);
