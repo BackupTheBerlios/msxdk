@@ -31,7 +31,7 @@ OptionParser::OptionParser( int argc, char ** argv)
 }
 
 int OptionParser::GetOption( const char * options)
-{
+{	
 	int	option = -1;
 	if ( m_argi < m_argc)
 	{
@@ -133,6 +133,7 @@ int OptionParser::GetOption( const char * options)
 					}
 				}										
 				m_nonoption_begin = m_argi - ( m_nonoption_end - m_nonoption_begin);
+				m_nonoption_end = m_argi;
 			}
 		}
 	}
