@@ -1,0 +1,162 @@
+File: Welcome
+
+MSXDK = MSX Development Kit
+
+What is?:
+
+The MSXDK is a development kit, created to ease the development of software for 
+MSX systems. It does this by providing you with a) a set of reusable modules 
+containing much of the functionality needed my most MSX applications and b) a 
+set of cross-development tools for PCs.
+
+Having access to a growing set of reusable Z80 modules means you can 
+concentrate on writing the actual program, instead of first having to write 
+mapper support routines or a depacker or music player etc. 
+
+The cross-development tools let you do the actual developing on a PC, which 
+should really ease and speed up the development process:@
+- assembling sources is much faster than on an MSX
+- manipulating data (converting, packing) is much faster than on an MSX
+
+Many developers who develop their MSX applications on a PC do most of the 
+testing of their MSX application on an emulator. However, even when testing on a 
+real MSX it will probably still be faster to assemble code and pack data on a PC 
+and then transfer these to the MSX on for example a CompactFlash than it would 
+be to do all the development on the MSX directly. If you have SCSI support in 
+both your MSX and PC you can even have a disc that is accessible from both 
+machines, which means you don't even loose time transfering code and data from 
+PC to MSX.
+
+Core and User modules:
+
+The *default* structure of software written using the MSXDK is that of a single 
+.COM file, possibly accompanied by one or more loadable program parts, depending 
+on whether you could fit everything into the .COM file or not. Note that a 
+normal .COM has a maximum size of 16K-256 bytes = 16128 bytes.
+
+If the application gets too big you will normally put all the assembled code in 
+the .COM file and all the data in extra files which are loaded when they are 
+needed. If not even all the assembled code fits into the .COM file you will 
+normally split up your program into a core part that should always be present, 
+several other code units that are loaded when they are needed. Since a program 
+is started by loading the .COM file it's only logical to put the core routines 
+in there. This means the core routines are loaded at $0100-$3fff and you'll 
+*probably* load the extra code units and data into $4000-$bfff and use $c000 and 
+above as a workspace.
+
+This seperation of core routines and non-core routines is present in the modules
+as well. Here the two types have been called Core and User. For most modules 
+though, this seperation is merely a guideline. Especially User modules can 
+normally be put inside the .COM file without problems, provided your .COM 
+doesn't get too big of course. Taking a Core module outside the .COM is 
+generally not advisable though and for something like the <environment> module 
+even nigh to impossible. This does not mean you have to include every Core 
+module in your program though. It just means that if you do use a Core 
+module in your program you should include it in the .COM file.
+
+How to use the modules?:
+
+Most modules can be assembled at any address and they always either have both an 
+initialisation and kill routine or they don't. Initialisation routines are 
+always called init_modulename and kill routines kill_modulename. For example, 
+the initialisation and kill routines of the <mapper> module are called 
+init_mapper and kill_mapper. Every module's initialisation and kill routine 
+should only be called once, but it is always safe to call a module's kill 
+routine even if you have not called its initialisation routine. 
+
+Some modules may depend on other modules, like for example the <moonblaster14> 
+module depending on the <chips> module. If there is such a dependancy it will be
+listed in the module's description. Something you should not forget is that if 
+module B depends on module A then module A _must_ have been successfully 
+initialised before you try to initialise module B and module B should be killed
+before module A.
+:
+Since most programs will use at least a couple of the Core modules and will
+want the environment set up right and an error string printed if some error
+occurs the <loader> module was created. Through a couple of defines you can tell
+it which Core modules should be included and it will also make sure those 
+modules are initialised and killed. Please refer to the <loader> documentation
+for more information.
+
+Assembling etc:
+
+The only (known) assembler that can assemble all MSXDK modules is SjASM. The 
+author of SjASM, Sjoerd Mastijn, has kindly given permission to include SjASM
+in the MSXDK distribution and you will be able to find a copy of it and its 
+documentation in the bin directory. It is possible though to use the MSXDK
+with other assemblers as well; please see the "How to use MSXDK with tniASM?"
+tutorial for more information on how to use MSXDK with tniASM or other
+assemblers. However, since SjASM will meet most people's needs and to keep 
+things simple SjASM will be used in all other MSXDK tutorials to assemble the 
+non-module code as well as the module code.
+:
+Assembling your program is of course only one part of the software generation
+process. To test your software on an emulator you most likely will want to add
+the assembled code together with any data files to a disk image. You might want
+to pack data so that it can be used with one of the depack modules. Etc, etc.
+For many of these tasks tools have been added to the bin directory and some form
+of documentation for most of these tools can be found in the "Tools" menu entry.
+:
+The best way to get to know all the tools and most of the core modules, together
+with a couple of user modules, is probably by going through the "Basics" 
+tutorial.
+
+Understanding module documentation:
+
+Most documentation should be self explaining, but there are a couple of things 
+you should know/pay attention to:@
+
+- If a function or macro has #DI# or #EI# as one of its ENTRY parameters then
+this means the interrupts are expected to be disabled (#DI#) or enabled (#EI#)
+before this function or macro is called.
+- If a function or macro has #DI# or #EI# as one of its EXIT parameters then
+this means the interrupts will be disabled (#DI#) or enabled (#EI#) after the
+function returns or the macro ends.
+- #Vn# registers are VDP registers. Note that #n# is always written in decimal.
+- #Sn# registers are VDP status registers.
+- If a function or macro has #Sn# as one of its ENTRY parameters then this means
+it expects VDP status register #n# to be the currently selected status register.
+- If a function or macro has #Sn# as one of its EXIT parameters then this means
+it VDP status register #n# is the currently selected status register after the
+function returns or the macro ends.
+- #FlagC# means the Carry bit in the Flag register.
+- #FlagZ# means the Zero bit in the Flag register.
+- #FlagS# means the Signed bit in the Flag register.
+	
+Extending the MSXDK:
+
+If you have written some code that you think might be useful to include in the
+MSXDK so that other people can use it as well then please contact the maintainer
+of the MSXDK. See the "Contact" topic below.
+
+If you want to submit a module or a new function for an existing module the
+minimum ammount of documentation you should include is a short description of
+what the module does, what each function does and the ENTRY, EXIT and MODIFIES
+parameters.
+
+Since a tool is used to extract the module documentation from the module's
+source files it would be nice if you could format your documentation to conform
+to the syntax this tool expects. Just look at the source of one of the existing
+modules to get an idea of what this format looks like.
+
+If your English isn't perfect or you don't understand the documentation syntax 
+then don't worry about it: just submit your code + documentation and somebody 
+else will clean up the documentation, provided ofcourse that your code is 
+accepted for inclusion in the MSXDK.
+
+Contact:
+
+The current maintainer of the MSXDK is Eli-Jean Leyssens and you can reach him 
+via email at eli-jean@gmx.de The official MSXDK homepage is located at 
+http://msxdk.berlios.de
+:
+Here's a list of the names of the most prominent contributors of code and tools
+to the MSXDK together with their e-mail address and homepage url where 
+appropriate:@
+- Eli-Jean Leyssens, eli-jean@gmx.de
+- Arjan Bakker, arjbakker@planet.nl, http://www.bombaman.net/
+- Patriek Lesparre, info@tni.nl, http://www.tni.nl
+- Sjoerd Mastijn, info@xl2s.tk, http://www.xl2s.tk
+- Remco Schrijvers
+
+People who have in some way contributed to the MSXDK: Keiichi Kuroda & Masarun
