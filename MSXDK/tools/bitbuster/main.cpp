@@ -26,6 +26,7 @@ using std::filebuf;
 
 
 #include <iostream>
+using std::ostream;
 using std::streambuf;
 using std::cout;
 using std::cerr;
@@ -46,6 +47,8 @@ using std::string;
 static string g_program_name = "";
 static int max_depth = 12;
 static string extension = "pck";
+
+static bool g_syntax = false;
 
 ofstream outfile;
 int bitstream_position;
@@ -84,12 +87,12 @@ typedef struct occur
 occur *occur_ptr[ 65536 ];
 
 
-occur occur_pool[ 65536 * 4] ;
-int occur_pointer = 0;
+occur *occur_pool;
+int occur_index = 0;
 
 occur *get_occur()
 {
-	return &occur_pool[ occur_pointer++ ];
+	return &occur_pool[ occur_index++ ];
 }
 
 
@@ -173,7 +176,7 @@ void flush_rest()
 }
 
 //write byte to file
-void write_byte(unsigned char value)
+void write_byte( unsigned char value )
 {
 	outbuffer[ buffer_position++ ] = value;
 
@@ -182,7 +185,7 @@ void write_byte(unsigned char value)
 }
 
 
-void write_bit(int value)
+void write_bit( int value )
 {
 	//if 8 bits has been added
 	if ( bitcount == 8 )
@@ -240,11 +243,39 @@ int gamma_size = 1;
 }
 
 
+void write_elias_gamma( int value )
+{
+unsigned int mask = 32768;
+
+	++value;
+	
+	while ( !( value & mask ) )
+		mask >>= 1;
+		
+	while( true )
+	{
+		if ( mask == 1 )
+		{
+			write_bit( 0 );
+			return;
+		}
+		
+     		mask >>= 1;
+     
+     		write_bit(1);
+		    
+		if ( value & mask )
+			write_bit( 1 );
+		else
+			write_bit( 0 );
+	}
+}
+
 //0		: 0
 //1/2	: 10x
 //3-6	: 110xx  (00=3, 01=4, 10=5, 11=6)
 //7-14	: 1110xxx (000=7,001=8,010=9,011=10,100=11,101=12,110=13,111=14)
-void write_elias_gamma( int value )
+void write_elias_gamma_a( int value )
 {
 int bit_size = get_gamma_size( value );
 int bit_mask = 1;
@@ -312,7 +343,7 @@ string output_name;
 
 			if ( offset > 127 )
 			{
-				write_byte( offset | 128 );
+				write_byte( offset | 128 ); 
 				write_bit( offset & 1024 );
 				write_bit( offset & 512 );
 				write_bit( offset & 256 );
@@ -341,11 +372,20 @@ string output_name;
 	//offset is zero -> end of file mark will be checked by RLE decompressing
 	write_byte( 0 );
 	
-	//set 16 bits
-	write_bits( 1, 16 );
+	//write eof marker
+	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );   
+	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );  
+	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );   
+	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );  
+	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );   
+	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );  
+	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );   
+	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );   
+	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); 
+	write_bit( 1 );
 	
 	//gamma bit length terminator
-	write_bits( 0, 8 );		
+	//write_bits( 0, 8 );		
 
 	flush_rest();
 
@@ -436,17 +476,17 @@ int position = 0;
 
 			result = best_result;
 
-			for (int i = position; i < position + best_result.first; i++)
+			for ( int i = position; i < position + best_result.first; i++)
 			{			
 				match_results[ i ].first = result.first--;		//match length
 				match_results[ i ].second = result.second++;	//match position
 			}
-
+			   
 			if ( best_result.second == ( position - 1 ) )
 			{
 				if ( best_result.first > 16 )
 					position += best_result.first - 16;
-			}
+			}   
 		}
 		
 
@@ -457,15 +497,14 @@ int position = 0;
 }
 
 
-class match_link
+typedef struct match_link
 {
-public:
 	int cost;
 	int position;
 	match_link *previous;
 	match_link *literal;
 	match_link *match;
-};
+} match_link;
 
 
 int depth;
@@ -510,7 +549,7 @@ void find_best( match_link *current )
 			match_link *match = &match_link_pool[ match_link_index++ ];
 
 			if ( current->position - match_results[ current->position ].second > 128 )
-				match->cost = current->cost + 1 + 12;
+				match->cost = current->cost + 1 + 13;
 			else
 				match->cost = current->cost + 1 + 8;
 
@@ -535,7 +574,7 @@ void strip_matches()
 match_link start;
 int position = 0;
 
-	while( position < length )
+	while ( position < length )
 	{
 		start.cost = 0;
 		start.position = position;
@@ -575,18 +614,27 @@ int position = 0;
 
 void compress( string file )
 {
+ 	occur_index = 0;
+ 	match_link_index = 0;
+ 	
+	//read some testdata
+	if ( readfile( file ) == -1 )
+	{
+		cout << "File " << file << " doesn't exist!" << endl;	
+		return;
+	}	
+           
  	cout << "Compressing: " << file << "... ";
  	cout.flush();
  	
-	//read some testdata
-	readfile( file );
-
 	//mark each value pair as non-occurring yet
 	for ( int i = 0; i < 256 * 256; i++)
 		occur_ptr[ i ] = NULL;
 
 	match_results = new match_result[ length ];
 
+	occur_pool = new occur[ length ];
+	
 	for ( int j = 0; j < length; j++)
 	{
 		match_results[ j ].first = -1;
@@ -596,19 +644,35 @@ void compress( string file )
 	//find matches for the whole file
 	find_matches();
 
-	strip_matches();
+	strip_matches();      
 
 	writefile( file );
-
-	delete [] data;
+                           
+	delete [] occur_pool; 	
 	delete [] match_results;
-	
+	delete [] data;
 }
 
 
 void print_try( void)
 {
 	cerr << "Try '" << g_program_name << " -h' for more information." << endl;
+}
+
+
+void print_syntax( ostream & stream = cerr)
+{
+	stream << "Compress file(s)" << endl;
+	stream << endl;
+	stream << g_program_name << " [-h] [-s <strength>] [-e <extension>]";
+	stream << " <filename> [<filename>...]" << endl;
+        stream << endl;
+	stream << "  -h             Print this information" << endl;
+	stream << "  -s <strength>  Set the compression strength (2...16)" << endl;
+	stream << "                 Default strength is 12" << endl;
+	stream << "  -e <extension> Set the extension used for compressed file(s)" << endl;
+	stream << "                 Default extension is pck" << endl;       
+        stream << endl;
 }
 
 
@@ -624,8 +688,9 @@ bool process_options( int argc, char ** argv, int & arg_index )
 		switch ( option )
 		{
 			case 'h':
-			
+			        g_syntax = true;
 				break;
+				
 			case 's':
 				{
 					string strength = parser.Argument();	
@@ -672,7 +737,8 @@ bool process_arguments( int argc, char ** argv, int & arg_index )
 	}
 	else
 	{    
-		print_try();
+		if ( !g_syntax )
+			print_try();
 		ret = false;		
 	}	
 
@@ -694,22 +760,26 @@ string program_name = argv[ 0 ];
 	
 	if ( program_name_pos != string::npos )
 	{
-		 program_name= program_name.substr( program_name_pos + 1 );
+		 program_name = program_name.substr( program_name_pos + 1 );
 	}
 #endif
 	g_program_name = program_name;
 
         ret = process_options( argc, argv, arg_index );
         
-	if ( ret)
+	if ( ret )
 	{             
+		if ( g_syntax )
+			print_syntax( cout );
+				
 		start = clock();   
 				
 		ret = process_arguments( argc, argv, arg_index );
 				
 		finish = clock();    
 		
-		cout << "Time elapsed:" << (double)( finish - start ) / CLOCKS_PER_SEC << endl;
+		if ( ret )
+			cout << "Time elapsed:" << (double)( finish - start ) / CLOCKS_PER_SEC << endl;
 	}
 	
 	return ret ? 0 : 1;
