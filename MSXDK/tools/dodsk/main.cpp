@@ -77,6 +77,7 @@ static int				g_bootblock			= FATDisk::BOOTBLOCK_MSX1;
 static int				g_command			= COMMAND_NONE;
 static string			g_dsk_filename		= "";
 static string			g_image_directory	= "";
+static CLUSTER			g_image_directory_cluster;
 static string			g_host_directory	= "";
 static FATDisk			g_fatdisk;
 
@@ -105,9 +106,299 @@ bool check_host_directory( void)
 	return ret;
 }
 
+bool execute_write( const char * filename)
+{
+	bool	ret = true;
+	/*xxx
+	
+	*/
+	return ret;
+}
+
+bool matches( const char * filename, const char * name, const char * extension)
+{
+	bool	ret = true;
+	
+	//xxx
+	return ret;
+}
+
+bool is_wildcarded( const char * filename)
+{
+	bool	ret = false;
+	
+	if ( 
+		(strstr( filename, "*") != NULL) ||
+		(strstr( filename, "?") != NULL)
+		)
+	{
+		ret = true;
+	}
+	return ret;
+}
+
+
+/** Splits a path up into a directory- and a leafname-part.
+	@param path			Full path
+	@param directory	Will be filled in with the directory part of the path (trailing / included, if originally present)
+	@param leaf			Will be filled in with the leafname part of the path
+*/
+void split_path( const string & path, string & directory, string & leafname)
+{
+	size_t	seperator_pos = path.rfind( '/');
+	if ( seperator_pos == string::npos)
+	{
+		directory = "";
+		leafname = path;
+	}
+	else
+	{
+		directory = path.substr( 0, seperator_pos + 1);
+		leafname = path.substr( seperator_pos + 1);
+	}
+}
+
+size_t non_right_space( const char * text)
+{
+	size_t	pos = strlen( text);
+	while ( pos && text[pos-1] == ' ')
+	{
+		pos--;
+	}
+	return pos;
+}
+
+string hostify( const char * name, const char * extension)
+{
+	string	hostifiedname = string(name).substr( 0, non_right_space( name));
+	string 	hostifiedextension = string( extension).substr( 0, non_right_space( extension));
+	if ( hostifiedextension.size() > 0)
+	{
+		hostifiedname += "." + hostifiedextension;
+	}
+	return hostifiedname;
+}
+
+/** Turns the given filename into a host-compatible/-friendly filename.
+	@param filename		Fillename to be hostified.
+	@return Hostified filename.
+*/
+string hostify( const string & filename)
+{
+	size_t	dotpos = filename.rfind( ".");
+	if ( dotpos != string::npos)
+	{
+		return hostify( filename.substr( 0, dotpos - 1).c_str(), filename.substr( dotpos + 1).c_str());
+	}
+	else
+	{
+		return hostify( filename.c_str(), "");
+	}
+}
+
+/** Turns all backslashes into forwardslashes and append a trailing /
+	if the path is not empty.
+	@param path	Path to be transformed.
+*/
+void forward_slash_and_terminate( string & path)
+{
+	if ( path.size() > 0)
+	{
+		size_t	pos;
+		while ( (pos = path.find( '\\')) != string::npos)
+		{
+			path[ pos] = '/';
+		}
+		if ( path[ path.size() - 1] != '/')
+		{
+			path.append( "/");
+		}
+	}
+}
+
+bool directory_to_cluster( const CLUSTER & start_cluster, const string & directory, CLUSTER & cluster)
+{
+	bool	ret = true;
+	
+	cluster = start_cluster;
+	string	remaining = directory;
+	while ( ret && remaining[0] != '\0')
+	{
+		size_t	seperator_pos = remaining.find( '/');
+		if ( seperator_pos == string::npos)
+		{
+			seperator_pos = remaining.find( '\\');
+		}
+		string	directory_name;
+		if ( seperator_pos == string::npos)
+		{
+			directory_name = remaining;
+			remaining = "";
+		}
+		else
+		{
+			directory_name = remaining.substr( 0, seperator_pos);
+			remaining = remaining.substr( seperator_pos + 1);
+		}
+		if ( directory_name.size() > 0)
+		{
+			int	entries;
+			ret = g_fatdisk.get_directory_entries( cluster, entries);
+			if ( ret)
+			{
+				FATDisk::object_info_t	object_info;
+				bool	found = false;
+				for ( int index = 0 ; ret && !found && index < entries ; ++index)
+				{
+					ret = g_fatdisk.get_directory_entry( cluster, index, object_info);
+					if ( ret)
+					{
+						if ( 
+							( strcmp( object_info.name, ".          ") != 0) &&
+							( strcmp( object_info.name, "..         ") != 0) &&
+							( matches( directory_name.c_str(), object_info.name, object_info.extension))
+							)
+						{
+							cluster = object_info.first_cluster;
+							found = true;
+						}
+					}
+				}
+				if ( ret && !found)
+				{
+					cerr << directory << " not found." << endl;
+					ret = false;
+				}
+			}
+		}
+	}
+	return ret;
+}
+
+bool recursive_read( const string host_directory, const string image_directory, const CLUSTER cluster, const char * name)
+{
+	bool	ret = true;
+	
+	bool	found = false;
+	int	entries;
+	ret = g_fatdisk.get_directory_entries( cluster, entries);
+	if ( ret)
+	{
+		FATDisk::object_info_t	object_info;
+		for ( int index = 0 ; ret && index < entries ; ++index)
+		{
+			ret = g_fatdisk.get_directory_entry( cluster, index, object_info);
+			if ( ret)
+			{
+				if ( 
+					( strcmp( object_info.name, ".          ") != 0) &&
+					( strcmp( object_info.name, "..         ") != 0)
+					)
+				{
+					if ( matches( name, object_info.name, object_info.extension))
+					{
+						found = true;
+						string	hostfile = host_directory + hostify( object_info.name, object_info.extension);
+						if ( object_info.attributes.directory)
+						{							
+							if ( 
+#ifdef MINGW							
+								mkdir( hostfile.c_str())
+#else
+								mkdir( hostfile.c_str(), 0777)
+#endif
+								 == 0)
+							{
+								ret = recursive_read( hostfile + "/", image_directory + hostify( object_info.name, object_info.extension) + "/", object_info.first_cluster, "*");
+							}
+							else
+							{
+								cerr << "Failed to mkdir " << hostfile << endl;
+								ret = false;
+							}
+						}
+						else
+						{
+							ofstream	outfile;
+			                outfile.open( hostfile.c_str(), ios::out|ios::binary);
+			                if ( outfile.is_open())
+			                {
+								ret = g_fatdisk.read_object( object_info.first_cluster, object_info.size, 
+										outfile);
+							}
+							else
+							{
+								cerr << "Failed to create/open file " << hostfile << endl;
+								ret = false;
+							}
+						}
+					}
+				}
+			}
+		}
+		if ( ret)
+		{
+			if ( !found && is_wildcarded( name))
+			{
+				cerr << image_directory << name << " not found." << endl;
+				ret = false;
+			}
+		}
+	}
+	
+	/*
+	found = false
+	for each object in image_cluster do
+		if matches(object.name, filename) then
+			found = true
+			if object.type == directory then
+				mkdir host_directory+hostify(object.name)
+				recursive_read( host_directory + hostify(object.name), image_directory+object.name,
+								object.first_cluster, "*")
+			else
+				copy file from image to host_directory+hostify(object.name)
+			endif
+		endif
+	next
+	if wildcarded(filename) && !found then
+		error "file not found"
+	endif
+	*/
+	//xxx
+	return ret;
+}
+
 bool execute_read( const char * filename)
 {
 	bool	ret = true;
+
+	string	directory, leafname;
+	split_path( filename, directory, leafname);
+	if ( g_host_directory.size() > 0)
+	{
+		CLUSTER	image_directory_cluster;
+		ret = 	directory_to_cluster( g_image_directory_cluster, directory, image_directory_cluster) &&
+				recursive_read( g_host_directory + hostify( directory), g_image_directory + directory,
+				image_directory_cluster, leafname.c_str());				
+	}
+	else
+	{
+		ret = recursive_read( directory, g_image_directory, 
+				g_image_directory_cluster, leafname.c_str());
+	}
+	/*
+	if -d then
+		filename: \ -> / ,  remove leading /
+		filename: split: directory, leaf
+		image_cluster = resolve( image_start_cluster + directory)
+		recursive_read( g_host_directory + hostify(directory), g_image_directory+directory,
+						image_cluster, leaf)
+	else
+		filename: split: directory, leaf		
+		recursive_read( directory, g_image_directory, 
+						g_image_cluster, leaf);
+	endif
+	*/
 	
 	/*
 	//xxx
@@ -145,14 +436,32 @@ bool dodsk_read( int argc, char ** argv)
 {
 	bool    ret = true;
 
+	/*	
+	DIR * opened_dir = opendir( "C:\\MA*");
+	if ( opened_dir != NULL)
+	{
+		struct dirent * entry;
+		
+		while ( (entry = readdir( opened_dir)) != NULL)
+		{
+			cout << entry->d_name << endl;
+		}
+		closedir( opened_dir);
+		opened_dir = NULL;
+	}
+	else
+	{
+		report_stat_error( g_host_directory);		
+	}
+	*/
+
 	ret = g_fatdisk.open( g_dsk_filename, g_dsk_exist ? FATDisk::OPEN_MUSTEXIST : FATDisk::OPEN_READONLY, g_format, g_bootblock);
 	if (ret)
 	{
-		//xxx
-		ret = check_host_directory();
+		//xxx		
+		ret = check_host_directory() && directory_to_cluster( ROOT_DIRECTORY_CLUSTER, g_image_directory, g_image_directory_cluster);
 		if ( ret)
 		{
-	//ret = lookup_image_directory( image_directory_cluster);
 			if ( argc == 0)
 			{
 				ret = execute_read( "*");
@@ -298,7 +607,7 @@ void print_syntax( ostream & stream = cerr)
 	stream << "Writes a file to or reads a file from a .DSK file" << endl;
 	stream << endl;
 	stream << g_program_name << " r[ead]|w[rite]|m[kdir]|d[elete]" << endl;
-	stream << "     [-hoke] [-f NNN] [-i <directory>] [-d <directory>]" << endl;
+	stream << "     [-hokec] [-f NNN] [-i <directory>] [-d <directory>]" << endl;
 	stream << "     [<dsk filename> <filename> [<filename>...]]" << endl;
 	stream << endl;
 	stream << "  -h             Print this information" << endl;
@@ -307,6 +616,7 @@ void print_syntax( ostream & stream = cerr)
 	stream << "  -e             The .DSK image file must already Exist." << endl;
 	stream << "  -i <directory> The directory inside the Image to be used as the start directory." << endl;
 	stream << "  -d <directory> The local(host) Directory to be used as the start directory." << endl;
+	stream << "  -c             Same as ""-d ."", i.e. current directory." << endl;
 	stream << "  -f NNN         If the .DSK file does not exist yet it will be created in" << endl;
 	stream << "                 the given Format." << endl;
 	stream << "                 360 = 360K, single sided, double density" << endl;
@@ -366,10 +676,23 @@ bool process_options( int argc, char ** argv, int & arg_index)
 			}			
 			break;
 		case 'i':
-			g_image_directory = parser.Argument();
+			{
+				g_image_directory = parser.Argument();
+				forward_slash_and_terminate( g_image_directory);
+			}
+			break;
+		case 'c':
+			g_host_directory = "./";
 			break;
 		case 'd':
-			g_host_directory = parser.Argument();
+			{
+				g_host_directory = parser.Argument();
+				forward_slash_and_terminate( g_host_directory);
+				if ( g_host_directory.size() == 0)
+				{
+					g_host_directory = "./";
+				}
+			}
 			break;
 		default:
 			ret = false;

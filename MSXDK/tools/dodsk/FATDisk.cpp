@@ -54,6 +54,14 @@ using std::vector;
 #define DIRECTORY_ENTRY_NAME				0
 #define DIRECTORY_ENTRY_EXTENSION			8
 #define DIRECTORY_ENTRY_ATTRIBUTE		   11
+#define DIRECTORY_ENTRY_ATTRIBUTE_READ_ONLY		(1<<0)
+#define DIRECTORY_ENTRY_ATTRIBUTE_HIDDEN		(1<<1)
+#define DIRECTORY_ENTRY_ATTRIBUTE_SYSTEM		(1<<2)
+#define DIRECTORY_ENTRY_ATTRIBUTE_VOLUME_LABEL	(1<<3)
+#define DIRECTORY_ENTRY_ATTRIBUTE_DIRECTORY		(1<<4)
+#define DIRECTORY_ENTRY_ATTRIBUTE_ARCHIVE		(1<<5)
+#define DIRECTORY_ENTRY_ATTRIBUTE_RESERVED		(3<<6)
+
 #define DIRECTORY_ENTRY_TIME			   22	
 #define DIRECTORY_ENTRY_DATE			   24
 #define DIRECTORY_ENTRY_FIRST_CLUSTER	   26
@@ -883,6 +891,12 @@ bool FATDisk::get_directory_entry( const CLUSTER directory, const int index, obj
 			object_info.extension[3] = '\0';
 			object_info.first_cluster	= LDRWORD( entry + DIRECTORY_ENTRY_FIRST_CLUSTER);
 			object_info.size 			= LDRDWORD( entry + DIRECTORY_ENTRY_SIZE);
+			object_info.attributes.read_only 	= entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_READ_ONLY;
+			object_info.attributes.hidden 		= entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_HIDDEN;
+			object_info.attributes.system 		= entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_SYSTEM;
+			object_info.attributes.volume_label = entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_VOLUME_LABEL;
+			object_info.attributes.directory 	= entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_DIRECTORY;
+			object_info.attributes.archive		= entry[ DIRECTORY_ENTRY_ATTRIBUTE] & DIRECTORY_ENTRY_ATTRIBUTE_ARCHIVE;			
 		}
 	}
 	return ret;
@@ -906,6 +920,13 @@ bool FATDisk::set_directory_entry( const object_info_t & object_info)
 			memcpy( entry + DIRECTORY_ENTRY_EXTENSION, object_info.extension, 3);
 			STRWORD( entry + DIRECTORY_ENTRY_FIRST_CLUSTER, object_info.first_cluster);
 			STRDWORD( entry + DIRECTORY_ENTRY_SIZE, object_info.size);
+			entry[ DIRECTORY_ENTRY_ATTRIBUTE] &= DIRECTORY_ENTRY_ATTRIBUTE_RESERVED;
+			entry[ DIRECTORY_ENTRY_ATTRIBUTE] |= object_info.attributes.read_only 	? DIRECTORY_ENTRY_ATTRIBUTE_READ_ONLY : 0;
+			entry[ DIRECTORY_ENTRY_ATTRIBUTE] |= object_info.attributes.hidden 		? DIRECTORY_ENTRY_ATTRIBUTE_HIDDEN : 0;
+			entry[ DIRECTORY_ENTRY_ATTRIBUTE] |= object_info.attributes.system 		? DIRECTORY_ENTRY_ATTRIBUTE_SYSTEM : 0;
+			entry[ DIRECTORY_ENTRY_ATTRIBUTE] |= object_info.attributes.volume_label? DIRECTORY_ENTRY_ATTRIBUTE_VOLUME_LABEL : 0;
+			entry[ DIRECTORY_ENTRY_ATTRIBUTE] |= object_info.attributes.directory 	? DIRECTORY_ENTRY_ATTRIBUTE_DIRECTORY : 0;
+			entry[ DIRECTORY_ENTRY_ATTRIBUTE] |= object_info.attributes.archive 	? DIRECTORY_ENTRY_ATTRIBUTE_ARCHIVE : 0;			
 			ret = write_cluster( cluster, data);
 		}
 	}

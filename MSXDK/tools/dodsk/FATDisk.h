@@ -94,7 +94,16 @@ public:
 		char			extension[8+1];
 		CLUSTER			first_cluster;
 		DWORD			size;
-		//xxx attributes, creation date etc
+		struct 	
+		{
+			int read_only : 1;
+			int hidden : 1;
+			int system : 1;
+			int volume_label : 1;
+			int directory : 1;
+			int archive : 1;
+		} attributes;
+		//xxx creation date etc
 	};    
 	
 	bool 	set_object_size( CLUSTER & first_cluster, const CLUSTER clusters, const bool nullify = false);
