@@ -247,7 +247,7 @@ void find_best( match_link *current )
 {
  	// if maximum search depth reached, or no more data
 	if ( ++depth == max_depth || current->position == length )
-	{
+	{         
 		// if current position is equal to or better than best position
 		if ( current->position >= best->position )
 		{
@@ -260,7 +260,8 @@ void find_best( match_link *current )
 			}
 			else
 				best = current;	// new best end of path
-		}
+		} 
+		
 	}
 	else
 	{
@@ -329,7 +330,7 @@ int position = 0;
 		start.cost = 0;
 		start.position = position;
 		start.parent = NULL;
-
+		
 		// set search level to 0
 		depth = 0;
 
@@ -383,48 +384,62 @@ int remaining_length;
 
 	max_depth = p_max_depth;
 	 	
+	// open file that has to be compressed
 	infile.open( file.c_str() , ios::binary | ios::in );
 	
+	// display error message if opening failed
 	if ( infile.fail() )
 	{
 		cerr << "Failed to read " << file << endl;	
 		return;
 	}	
 
+	// get fil length
 	remaining_length = file_length = get_file_length( infile );
          
+        // if block length not set, use file length as block length
         if ( block_length == -1 )
 		block_length = file_length;
 		 
+	// empty files won't be compressed
 	if ( file_length == 0 )
 	{
 		cerr << "Nothing to compress!" << endl;
 		return;
 	}	
 	  
+	// create output file
        	outfile.open( output_file.c_str(), ios::binary | ios::out );
 	       
+	// displaty error message if creation failed
 	if ( outfile.fail() )
 	{
 		cerr << "Failed to open " << output_file << " for output" << endl;
 		return;
 	}
         
+        // write original file length
 	outfile.write( (char*)&file_length, 4 );
 		
+	// calculate number of blocks to process
 	block_count = ( file_length - 1 ) / block_length + 1;
 	             	               
+	// write number of blocks to file
 	outfile.write( (char*)&block_count, 4 );
 						             	   
  	cout << "Compressing: " << file << "... ";
  	cout.flush();
  	
+ 	// process all blocks
  	while ( block_count-- )
  	{ 		 
+ 		// get current position in file
 	 	position = outfile.tellp();
 		
+		// write dummy length value
 		outfile.write( (char*)&position, 4 );
-				 		
+				 	
+		// set length of current block	
  		if ( remaining_length < block_length )
  			length = remaining_length;
  		else
@@ -434,8 +449,10 @@ int remaining_length;
 		for ( int i = 0; i < 256 * 256; i++)
 			occur_ptr[ i ] = NULL;
 	
+		// new space for data
 		data = new unsigned char[ length ];
 		
+		// read block
 		infile.read( (char*)data, length );
 	
 		// create new array for storing match results
@@ -453,7 +470,7 @@ int remaining_length;
 	
 		// find matches for the whole file
 		find_matches();
-	
+	                      	        
 		// remove all bad matches
 		strip_matches();      
 	        
@@ -465,19 +482,26 @@ int remaining_length;
 		delete [] match_results;
 		delete [] data;
 		
+		// get current position in file
 		compressed_length = outfile.tellp();
 		
+		// move back
 		outfile.seekp( position, ios::beg );
 		
+		// calculate length of decompressed data
 		position = compressed_length - position - 4;
 		
+		// write length to file
 		outfile.write( (char*)&position, 4 );
 		
+		// back to end of file
 		outfile.seekp( 0, ios::end );
 		
+		// decrease number of bytes to go
 		remaining_length -= block_length;
 	}
 	
+	// close files
 	infile.close(); 
 	outfile.close();
 	

@@ -57,7 +57,7 @@ void print_syntax( ostream & stream = cerr )
 {
 	stream << "Compress file(s)" << endl;
 	stream << endl;
-	stream << g_program_name << " [-hoa] [-s <strength>] [-e <extension>] [-b <length>]";
+	stream << g_program_name << " [-hoa] [-s <strength>] [-e <extension>] [-b <size>]";
 	stream << " <filename> [<filename>...]" << endl;
         stream << endl;
 	stream << "  -h             Print this information" << endl;
@@ -68,7 +68,7 @@ void print_syntax( ostream & stream = cerr )
 	stream << "                 Default strength is 12" << endl;
 	stream << "  -e <extension> Set the extension used for compressed file(s)" << endl;
 	stream << "                 Default extension is pck" << endl;
-	stream << "  -b <length>    Set block length for compressed blocks" << endl;
+	stream << "  -b <size>      Set size of data to be compressed per chunk" << endl;
 	stream << "                 Default block length is original file size" << endl;      
         stream << endl;
 }
@@ -124,12 +124,13 @@ int option;
 					// get block size
 					string block_size = parser.Argument();
 				
+					// convert to integer
 					g_block_length = atoi( block_size.c_str() );
 					
 					// print error if < 1
-					if ( g_block_length < 1 )
+					if ( g_block_length < 128 )
 					{
-						cerr << "Incorrect block length" << endl;
+						cerr << "Block length must be > 127" << endl;
 						ret = false;
 					}	
 				}
