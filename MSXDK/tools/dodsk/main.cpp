@@ -682,12 +682,32 @@ cout << "recursive write: " << host_directory << "," << name << endl;
 							}
 							if ( ret)
 							{
+cout << "MARK 1" << endl;								
 								ret = g_fatdisk.set_object_size( object_info.first_cluster, file_stat.st_size);
+cout << "MARK 2" << endl;								
 								if ( ret)
 								{
 									// set_object_size might have altered the object's first_cluster
 									// so it needs to be written back to the image
+									//xxx as long as the size setting stays here that should be grounds
+									//enough as well
+									object_info.size = file_stat.st_size;									
 									ret = g_fatdisk.set_directory_entry( object_info);
+									if ( ret)
+									{
+										ifstream	infile;
+						                infile.open( hostfile.c_str(), ios::in|ios::binary);
+						                if ( infile.is_open())
+						                {
+						                	ret = g_fatdisk.write_object( object_info.first_cluster, file_stat.st_size, infile);
+						                	infile.close();
+						                }
+						                else
+						                {
+											cerr << "Failed to open file " << hostfile << endl;
+											ret = false;
+						                }
+									}
 								}
 							}
 						}

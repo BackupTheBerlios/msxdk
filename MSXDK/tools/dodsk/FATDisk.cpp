@@ -571,12 +571,12 @@ bool FATDisk::set_fat_entry( const CLUSTER cluster, const CLUSTER value)
 		for ( int fat_copy = 0 ; ret && (fat_copy < m_fat_copies); ++fat_copy)
 		{
 			BYTE	bytes[2];
-			ret = read_bytes( (m_fat_sector * m_bytes_per_sector) + offset, bytes, 2);
+			ret = read_bytes( (m_fat_sector * m_bytes_per_sector) + offset + (fat_copy * m_sectors_per_fat * m_bytes_per_sector), bytes, 2);
 			if ( ret)
 			{
-				bytes[0] = (bytes[0] & mask) | ( cluster << shift);
-				bytes[1] = (bytes[1] & (mask >> 8)) |  (cluster >> (8-shift));
-				ret = write_bytes( (m_fat_sector * m_bytes_per_sector) + offset, bytes, 2);
+				bytes[0] = (bytes[0] & mask) | ( value << shift);
+				bytes[1] = (bytes[1] & (mask >> 8)) |  (value >> (8-shift));
+				ret = write_bytes( (m_fat_sector * m_bytes_per_sector) + offset + (fat_copy * m_sectors_per_fat * m_bytes_per_sector), bytes, 2);
 			}
 		}
 	}
@@ -700,7 +700,7 @@ bool FATDisk::set_object_size( CLUSTER & first_cluster, const size_t object_size
 {
 	bool	ret = true;
 	
-	CLUSTER clusters = object_size / m_bytes_per_cluster;
+	CLUSTER clusters = (object_size + m_bytes_per_cluster - 1) / m_bytes_per_cluster;
 	CLUSTER	old_clusters;
 	ret = verify_object( first_cluster, false, old_clusters);
 	if ( ret && ( clusters != old_clusters))
@@ -737,9 +737,10 @@ bool FATDisk::set_object_size( CLUSTER & first_cluster, const size_t object_size
 					{
 						ret = get_fat_entry( cluster, next);
 					}
-					if ( IS_LAST_CLUSTER( next))
+					if ( ret && IS_LAST_CLUSTER( next))
 					{
 						next = FREE_CLUSTER;
+						//xxx can speed this up by remembering last found free cluster (at least in this loop)
 						for ( CLUSTER free_cluster = 0 ; ret && (free_cluster < m_clusters); ++free_cluster)
 						{
 							ret = get_fat_entry( free_cluster, next);
@@ -758,6 +759,7 @@ bool FATDisk::set_object_size( CLUSTER & first_cluster, const size_t object_size
 										ret = write_bytes( position, &nulls[0], size);
 									}									
 								}
+								ret = set_fat_entry( free_cluster, LAST_CLUSTER);
 								next = free_cluster;
 								break;
 							}
@@ -774,11 +776,8 @@ bool FATDisk::set_object_size( CLUSTER & first_cluster, const size_t object_size
 							ret = set_fat_entry( cluster, next);
 						}
 						cluster = next;
+						count++;
 					}
-				}
-				if ( ret)
-				{
-					ret = set_fat_entry( cluster, LAST_CLUSTER);
 				}
 			}
 		}
@@ -1047,7 +1046,7 @@ bool FATDisk::read_cluster( const CLUSTER cluster, vector<BYTE> & data)
 bool FATDisk::write_cluster( const CLUSTER cluster, const vector<BYTE> & data)
 {
 	bool	ret = true;
-	
+
 	size_t 	position;
 	size_t	size;
 	ret = cluster_to_position_size( cluster, position, size);
@@ -1108,10 +1107,10 @@ bool FATDisk::write_object( const CLUSTER first_cluster, const DWORD size, ifstr
 		while ( ret && (left > 0))
 		{
 			vector<BYTE>	data;
-			size_t	read_size = left > data.size() ? data.size() : left;
 			ret = read_cluster( cluster, data);
 			if ( ret)
 			{
+				size_t	read_size = left > data.size() ? data.size() : left;
 				input.read( reinterpret_cast<char*>(&data[0]), read_size);
 				if ( !input.fail())
 				{
