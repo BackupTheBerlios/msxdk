@@ -40,12 +40,10 @@ using std::string;
 
 
 #include "FATDisk.h"
+typedef FATDisk::CLUSTER CLUSTER;
 #include "OptionParser.h"
 
 #define PATHSIZE (MAX_PATH+1)
-
-typedef int CLUSTER;
-#define CLUSTER_NONE (-1)
 
 enum {
 	COMMAND_NONE,
@@ -635,6 +633,66 @@ bool find_directory_entry( FATDisk::object_info_t & entry, bool & found)
 	return ret;
 }
 
+bool execute_mkdir( const CLUSTER directory_cluster, const string & image_directory, const char * subdirectory_name, CLUSTER & subdirectory_cluster, const bool exists_is_error)
+{
+	bool	ret = true;
+	
+	FATDisk::object_info_t	object_info;
+	memset( &object_info, 0, sizeof( object_info));
+	object_info.directory = directory_cluster;
+	bool found;						
+	ret = imageify( subdirectory_name, object_info.name, object_info.extension) && 
+			find_directory_entry( object_info, found);
+	if ( ret)
+	{
+		if ( found)
+		{
+			if ( exists_is_error)
+			{
+				//xxx should imageify_nice( subdirectory_name)
+				cerr << "Failed to create directory " << image_directory << subdirectory_name << " as it already exists." << endl;
+				ret = false;
+			}
+		}
+		else
+		{
+			subdirectory_cluster = 0; //xxx FREE_CLUSTER
+			ret = g_fatdisk.set_object_size( subdirectory_cluster, 2*32, true);
+			if ( ret)
+			{
+				FATDisk::object_info_t	entry;
+				memset( &entry, 0, sizeof(entry));
+				strcpy( entry.name, ".       ");
+				strcpy( entry.extension, "   ");
+				entry.attributes.directory = true;
+				entry.first_cluster = subdirectory_cluster;
+				entry.index	= 0;
+				ret = g_fatdisk.set_directory_entry( entry);
+				if ( ret)
+				{
+					strcpy( entry.name, "..      ");
+					strcpy( entry.extension, "   ");
+					entry.attributes.directory = true;
+					entry.first_cluster = directory_cluster;
+					entry.index	= 1;
+					ret = g_fatdisk.set_directory_entry( entry);
+				}
+				if ( ret)
+				{
+					object_info.attributes.directory = true;
+					object_info.first_cluster = subdirectory_cluster;
+					ret = g_fatdisk.new_directory_entry( object_info);	
+				}				
+				if ( !ret)
+				{
+					g_fatdisk.set_object_size( subdirectory_cluster, 0);
+				}
+			}
+		}
+	}
+	return ret;
+}
+
 bool recursive_write( const string host_directory, const string image_directory, const char * name, const CLUSTER cluster)
 {
 	bool	ret = true;
@@ -660,12 +718,16 @@ cout << "recursive write: " << host_directory << "," << name << endl;
 				{
 					if ( S_ISDIR( file_stat.st_mode))
 					{
-						cout << "directory found: " << hostfile << endl;
-						//xxx call execute_mkdir ....
+						CLUSTER	subdirectory_cluster;
+						ret = execute_mkdir( cluster, image_directory, entry->d_name, subdirectory_cluster, false);
+						if ( ret)
+						{
+							//xxx for the image_directory we should imageify_nice( entry->d_name)
+							ret = recursive_write( host_directory + string( entry->d_name) + "/", image_directory + string( entry->d_name) + "/", "*", subdirectory_cluster);
+						}
 					}
 					else
 					{
-						cout << "file found: " << hostfile << endl;
 						FATDisk::object_info_t	object_info;
 						memset( &object_info, 0, sizeof( object_info));
 						object_info.directory = cluster;						
@@ -682,9 +744,7 @@ cout << "recursive write: " << host_directory << "," << name << endl;
 							}
 							if ( ret)
 							{
-cout << "MARK 1" << endl;								
 								ret = g_fatdisk.set_object_size( object_info.first_cluster, file_stat.st_size);
-cout << "MARK 2" << endl;								
 								if ( ret)
 								{
 									// set_object_size might have altered the object's first_cluster
