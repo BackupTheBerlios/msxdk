@@ -28,7 +28,7 @@ using std::cerr;
 using std::endl;
 using std::ios;
 #include "Archive.h"
-#include "loadsave_file.h"
+#include "filesnstreams.h"
 
 using std::vector;
 

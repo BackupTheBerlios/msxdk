@@ -23,7 +23,7 @@
 #include <unistd.h>
 #include "Archive.h"
 #include "INIFile.h"
-#include "loadsave_file.h"
+#include "filesnstreams.h"
 #include <OptionParser.h>
 #include <iostream>
 #include <fstream>
