@@ -58,7 +58,7 @@ void flush_rest()
 {
  	// write data, if any
 	if ( buffer_position )
-		outfile->write( (char*)outbuffer, buffer_position - 1);
+		outfile->write( (char*)outbuffer, buffer_position );
 
 	// reset buffer / bit positions
 	buffer_position = bit_position = 0;
@@ -83,9 +83,6 @@ void write_bit( int value )
 	//if 8 bits has been added
 	if ( bitcount == 8 )
 	{	
-		// write the bitdata to the buffer
-		outbuffer[ bit_position ] = bitdata;
-
 		// set new but position
 		bit_position = buffer_position++;
 
@@ -104,6 +101,9 @@ void write_bit( int value )
 	if ( value )
 		bitdata++;		
 
+	// write the bitdata to the buffer
+	outbuffer[ bit_position ] = bitdata;
+		
 	//increase number of bits added to value
 	bitcount++;			
 }
@@ -155,6 +155,8 @@ void write_file( ofstream *p_outfile, unsigned char *data, int length, match_res
 {
 int position = 0;
 int offset;
+
+	bitcount = bitdata = 0;
 
 	outfile = p_outfile;
 
@@ -224,7 +226,6 @@ int offset;
 	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );  
 	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );   
 	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );    
-	write_bit( 1 ); write_bit( 1 ); write_bit( 1 ); write_bit( 1 );
 			
 	// write all remaining data
 	flush_rest();

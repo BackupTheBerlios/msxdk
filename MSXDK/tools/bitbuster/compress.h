@@ -28,9 +28,7 @@ using std::endl;
 
 #include <fstream>
 using std::ifstream;
-using std::ofstream;
 using std::ios;
-using std::filebuf;
 using std::pair;
 
 #include <string>

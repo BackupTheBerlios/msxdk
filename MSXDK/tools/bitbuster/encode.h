@@ -30,11 +30,9 @@ using std::cout;
 using std::cerr; 
 using std::endl;
 
-#include <fstream>   
-using std::ifstream;
+#include <fstream>  
 using std::ofstream;
 using std::ios;
-using std::filebuf;
 
 
 #include <string>

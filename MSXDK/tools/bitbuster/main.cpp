@@ -20,11 +20,9 @@
 
 #include <iostream>
 using std::ostream;
-using std::streambuf;
 using std::cout;
 using std::cerr;
 using std::endl;
-using std::pair;
                 
 #include <string>
 using std::string;
