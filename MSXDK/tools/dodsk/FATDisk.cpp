@@ -696,10 +696,11 @@ bool FATDisk::verify_object( const CLUSTER first_cluster, const bool directory)
 	return verify_object( first_cluster, directory, clusters);
 }
 
-bool FATDisk::set_object_size( CLUSTER & first_cluster, const CLUSTER clusters, const bool nullify)
+bool FATDisk::set_object_size( CLUSTER & first_cluster, const size_t object_size, const bool nullify)
 {
 	bool	ret = true;
 	
+	CLUSTER clusters = object_size / m_bytes_per_cluster;
 	CLUSTER	old_clusters;
 	ret = verify_object( first_cluster, false, old_clusters);
 	if ( ret && ( clusters != old_clusters))
@@ -971,7 +972,7 @@ bool FATDisk::new_directory_entry( object_info_t & object_info)
 				{
 					clusters++;
 					CLUSTER directory = object_info.directory;
-					ret = set_object_size( directory, clusters, true);
+					ret = set_object_size( directory, clusters * m_bytes_per_cluster, true);
 					if ( ret)
 					{
 						object_info.index = entries;

@@ -107,7 +107,7 @@ public:
 		//xxx creation date etc
 	};    
 	
-	bool 	set_object_size( CLUSTER & first_cluster, const CLUSTER clusters, const bool nullify = false);
+	bool 	set_object_size( CLUSTER & first_cluster, const size_t object_size, const bool nullify = false);
 	bool 	get_directory_entries( const CLUSTER directory, int & entries);
     bool 	get_directory_entry( const CLUSTER directory, const int index, object_info_t & object_info);
     bool 	set_directory_entry( const object_info_t & object_info);
