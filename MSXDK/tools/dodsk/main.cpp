@@ -1,4 +1,4 @@
-// Copyright (c) 2003 Eli-Jean Leyssens
+// Copyright (c) 2003-2004 Eli-Jean Leyssens
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy of 
 // this software and associated documentation files (the "Software"), to deal in 
@@ -442,6 +442,7 @@ cout << "file found: " << hostfile << endl;
 			                {
 								ret = g_fatdisk.read_object( object_info.first_cluster, object_info.size, 
 										outfile);
+								outfile.close();
 							}
 							else
 							{
