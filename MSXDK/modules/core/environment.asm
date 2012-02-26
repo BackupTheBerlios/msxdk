@@ -239,7 +239,7 @@
 ;******
 ;
 _setupslots:
-		TEXTAREA	$8000
+		PHASE	$8000
 setupslots:
 		push	hl
 		ld	a,l
@@ -325,7 +325,7 @@ setupslots:
 .continue_at_page0:
 		ret
 setupslots_end:
-		ENDT
+		DEPHASE
 				
 ;****if* environment/kill_environment
 ;
@@ -399,7 +399,7 @@ setupslots_end:
 ;******
 ;
 _restoreslots:
-		TEXTAREA	$8000		
+		PHASE	$8000		
 restoreslots:
 		ld	a,l			; Select the original main slots
 		out	($a8),a			;
@@ -409,7 +409,7 @@ restoreslots:
 						; in which page 3 currently resides.
 		jp	$0000			; Do a warmboot (return to DOS1/DOS2)
 restoreslots_end:
-		ENDT
+		DEPHASE
 
 ; FUNCTION:	get_ramslotid
 ;	Returns a Slot ID for the slot in which the primary mapper resides.
@@ -427,7 +427,7 @@ restoreslots_end:
 ; MODIFIES:
 ;	#None#
 ;
-@get_ramslotid:		EXPORT get_ramslotid
+@get_ramslotid:
 		ld	a, (ramslotid)
 		ret
 		
@@ -452,7 +452,7 @@ restoreslots_end:
 ; MODIFIES:
 ;	#IX, IY, AF', BC', DE', HL'#
 ;
-@call_subrom:	EXPORT	call_subrom
+@call_subrom:
 		exx
 		ex	af,af'       		; Store all registers
 		ld	hl,EXTROM

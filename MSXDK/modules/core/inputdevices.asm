@@ -80,7 +80,7 @@
 ; MODIFIES:
 ;	#None# XXX should mention PPIRRB/C here
 ;
-@read_keyrow:	EXPORT	read_keyrow
+@read_keyrow:
 		in	a,(PPIPRC)
 		and	%11110000
 		or	b
@@ -121,7 +121,7 @@
 ; MODIFIES:
 ;	#None# XXX should mention PSG... here
 ;
-@read_joystick:	EXPORT	read_joystick
+@read_joystick:
 		push	bc
 		and	%00000001       ; just keep joystick select bit
 		rrca

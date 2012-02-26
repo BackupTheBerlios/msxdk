@@ -312,7 +312,7 @@ string_opll:	db	"OPLL"
 ;	#ALL#
 ;
 		IFDEF	INCLUDE_CHIPS_R800
-@get_cpu_mode:	EXPORT	get_cpu_mode
+@get_cpu_mode:
 		ei
 		ld	a,(chips)
 		and	1<<CHIP_R800
@@ -343,7 +343,7 @@ string_opll:	db	"OPLL"
 ;	#ALL#
 ;
 		IFDEF	INCLUDE_CHIPS_R800
-@set_cpu_mode:	EXPORT	set_cpu_mode
+@set_cpu_mode:
 		ei
 		ld	b,a
 		ld	a,(chips)
@@ -369,7 +369,7 @@ string_opll:	db	"OPLL"
 ;	#ALL#
 ;
 		IFDEF	INCLUDE_CHIPS_R800
-@turn_r800_off:	EXPORT	turn_r800_off
+@turn_r800_off:
 		ld	a, Z80_MODE
 		jr	set_cpu_mode
 		ENDIF
@@ -389,7 +389,7 @@ string_opll:	db	"OPLL"
 ;	#ALL#
 ;
 		IFDEF	INCLUDE_CHIPS_R800
-@turn_r800_on:	EXPORT	turn_r800_on
+@turn_r800_on:
 		ld	a, (r800_mode)
 		jr	set_cpu_mode
 		ENDIF
@@ -434,23 +434,18 @@ string_opll:	db	"OPLL"
 		jr	.jump_relative
 		
 @CHIP_R800:	equ	0
-		EXPORT	CHIP_R800
 		jr	get_chip_info_r800
 		
 @CHIP_SCC:	equ	1
-		EXPORT	CHIP_SCC
 		jr	get_chip_info_scc
 		
 @CHIP_MSXAUDIO:	equ	2
-		EXPORT	CHIP_MSXAUDIO
 		jr	get_chip_info_msxaudio
 		
 @CHIP_MSXMUSIC:	equ	3
-		EXPORT	CHIP_MSXMUSIC
 		jr	get_chip_info_msxmusic
 
 @CHIP_MOONSOUND:	equ	4
-		EXPORT	CHIP_MOOONSOUND
 		jr	get_chip_info_moonsound
 				
 CHIP_UNKNOWN:	equ	5

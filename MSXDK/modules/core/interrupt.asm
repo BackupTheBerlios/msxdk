@@ -70,8 +70,7 @@ kill_interrupt:
 ;	:
 ;:my_hookchain_structure:	ds	SIZEOF_HOOKCHAIN
 ;
-@SIZEOF_HOOKCHAIN	equ	10
-		EXPORT SIZEOF_HOOKCHAIN
+SIZEOF_HOOKCHAIN	equ	10
 
 ; FUNCTION:	add_to_hookchain
 ;	Adds some code to the chain of the given hook.
@@ -113,7 +112,7 @@ kill_interrupt:
 ; MODIFIES:
 ;	#F, BC, DE, HL, IX#
 ;
-add_to_hookchain:	EXPORT	add_to_hookchain
+add_to_hookchain:
 		push	hl
 		push	de
 		
@@ -168,7 +167,7 @@ add_to_hookchain:	EXPORT	add_to_hookchain
 ; MODIFIES:
 ;	#F, BC, DE, HL#
 ;
-remove_from_hookchain:	EXPORT	remove_from_hookchain
+remove_from_hookchain:
 		ld	e, (hl)			; Get the hook address
 		inc	hl			;
 		ld	d, (hl)			;
@@ -191,8 +190,7 @@ remove_from_hookchain:	EXPORT	remove_from_hookchain
 ;	:
 ;:my_inthandler_structure:	ds	SIZEOF_INTHANDLER
 ;
-@SIZEOF_INTHANDLER	equ	5
-		EXPORT SIZEOF_INTHANDLER
+SIZEOF_INTHANDLER	equ	5
 
 ; FUNCTION:	set_interrupt_handler
 ;	Copies the code at $0038 to the given inthandler structure and

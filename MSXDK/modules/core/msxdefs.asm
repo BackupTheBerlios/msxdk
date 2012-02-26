@@ -33,7 +33,6 @@
 
 	MACRO	EXPDEF	DEFNAME, DEFVAL
 DEFNAME		equ	DEFVAL
-		EXPORT	DEFNAME
 	ENDM
 	
 	; Available under DOS only

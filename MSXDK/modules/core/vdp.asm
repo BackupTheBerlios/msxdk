@@ -128,7 +128,7 @@
 ; MODIFIES:
 ;	#AF#
 ;
-@set_vram_write:  EXPORT	set_vram_write
+@set_vram_write:
 		ld	a,h
 		and	#c0
 		or	b
@@ -157,7 +157,7 @@
 ; MODIFIES:
 ;	#AF#
 ;
-@set_vram_read:  EXPORT	set_vram_read
+@set_vram_read:
 		ld	a,h
 		and	#c0
 		or	b
@@ -193,7 +193,7 @@
 ; MODIFIES:
 ;	#AF, C, E#
 ;
-@ram_to_vram:	EXPORT	ram_to_vram
+@ram_to_vram:
 		ld	c,$98			; Data port
 		
 		ld	b,e             	; Move LSB size to B
@@ -244,7 +244,7 @@
 ; MODIFIES:
 ;	#AF, C, E#
 ;
-@vram_to_ram:	EXPORT	vram_to_ram
+@vram_to_ram:
 		ld	c,$98			; Data port
 		
 		ld	b,e             	; Move LSB size to B
@@ -289,7 +289,7 @@
 ; MODIFIES:
 ;	#AF#
 ;
-@write_vdpreg: 	EXPORT	write_vdpreg
+@write_vdpreg:
 		ld	a,b
 		out	(#99),a
 		ld	a,c
@@ -311,7 +311,7 @@
 ; MODIFIES:
 ;	#AF, BC, HL, V17, V32-V46#
 ;
-@vdp_command:	EXPORT vdp_command
+@vdp_command:
 		WRITEVDP 17, 32			; Set the indirect register update register
 		ld	c, $9b			; The port to use for indirect register updates
 .wait:		in	a,($99)			; Is the VDP ready to accept a new command?
@@ -348,7 +348,7 @@
 ; MODIFIES:
 ;	#AF, C#
 ;
-@change_color:	EXPORT	change_color
+@change_color:
 		ld      c,$99
 		out     (c),b
 		ld      a,$90
@@ -371,7 +371,7 @@
 ; MODIFIES:
 ;	#AF, BC, HL#
 ;
-@change_palette:	EXPORT change_palette
+@change_palette:
 		ld	c,$99
 		xor     a
 		out     (c),a
@@ -411,7 +411,7 @@
 ; MODIFIES:
 ;	#AF, BC, HL, V0-V11, V17, V25#
 ;
-@set_screen_mode:	EXPORT	set_screen_mode
+@set_screen_mode:
 		WRITEVDP        17,0                
 		ld      bc,12 * 256 + $9b
 		otir
@@ -432,7 +432,7 @@
 ;	AF,BC,HL,V17,V32-V46
 ;******
 ;
-@clear_screen_page:	EXPORT	clear_screen_page
+@clear_screen_page:
 		di
 		ld	(clear_screen_data + 3),a
 		ld	(clear_screen_data + 7),a

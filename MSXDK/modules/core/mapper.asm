@@ -53,10 +53,9 @@
 ;               
 		IFNDEF  MEMSEGMENTS
 		DEFINE  MEMSEGMENTS     4
-		ELSE
+		ENDIF
 		IF      MEMSEGMENTS < 4
 		"ERROR: MEMSEGMENTS MUST BE SET TO AT LEAST 4!!!"
-		ENDIF
 		ENDIF           
 
 ;****if* mapper/init_mapper
@@ -296,7 +295,7 @@ count_segments:
 ; MODIFIES:
 ;	#ALL#
 ;
-@detect_dos2mapper:	EXPORT	detect_dos2mapper
+@detect_dos2mapper:
 		di				; Since the call the EXTBIO (probably) disables interrupts
 						; we have to make sure they're disabled as well if the call
 						; to EXTBIO isn't made (but rather the ret nc is taken).
@@ -318,11 +317,11 @@ count_segments:
 ;       available at that address. An assembler error will be generated if the
 ;       number of bytes is not enough to store the mapper-routines and
 ;       -workspace at. An assembler error is also generated if 
-;	MAPPER_WORKSPACE_BASE is defined to any address below $c000.
+;		MAPPER_WORKSPACE_BASE is defined to any address below $c000.
 ;       If MAPPER_WORKSPACE_BASE is not defined then it will be set to VOICAQ
 ;       with a MAPPER_WORKSPACE_SIZE of 128*3 bytes. This means you can not use
-;       any PLAY commands from the BASIC ROM, which any sane person using this
-;       framework wouldn't do anyway.
+;       any PLAY commands from the BASIC ROM, which no sane person using this
+;       framework would do anyway.
 ;
 ; DEFINE:	MAPPER_WORKSPACE_SIZE
 ;       See <MAPPER_WORKSPACE_BASE> for more information.
@@ -330,17 +329,16 @@ count_segments:
 		IFNDEF          MAPPER_WORKSPACE_BASE
 		DEFINE          MAPPER_WORKSPACE_BASE   VOICAQ
 		DEFINE          MAPPER_WORKSPACE_SIZE   128*3
-		ELSE
+		ENDIF
 		IF		MAPPER_WORKSPACE_BASE < $c000
 		ERROR "MAPPER_WORKSPACE_BASE < $c000!"
 		ELSE
 		IFNDEF          MAPPER_WORKSPACE_SIZE
 		ERROR "MAPPER_WORKSPACE_BASE is defined, but MAPPER_WORKSPACE_SIZE is not!"             
 		ENDIF
-		ENDIF
 		ENDIF                
 _mapper_routines:
-		TEXTAREA        MAPPER_WORKSPACE_BASE
+		PHASE        MAPPER_WORKSPACE_BASE
 mapper_routines:
 ; FUNCTION:	put_page0
 ;       Map the given segment in at page 0 ($0000-$3fff).
@@ -354,7 +352,7 @@ mapper_routines:
 ; MODIFIES:
 ;       #AF#
 ;
-@put_page0:     EXPORT  put_page0
+@put_page0:
 		ld      (page0),a
 		out     (#fc),a         ; The "out (#fc),a", ret and "defs 3" will be overwritten with
 		ret                     ; "call translate_segment_to_dos2", "jp <DOSMAPPER_PUT_P0>"
@@ -371,7 +369,7 @@ mapper_routines:
 ; MODIFIES:
 ;       #AF#
 ;
-@put_page1:     EXPORT  put_page1
+@put_page1:
 		ld      (page1),a
 		out     (#fd),a         ; The "out (#fd),a", ret and "defs 3" will be overwritten with
 		ret                     ; "call translate_segment_to_dos2", "jp <DOSMAPPER_PUT_P1>"
@@ -388,7 +386,7 @@ mapper_routines:
 ; MODIFIES:
 ;       #AF#
 ;
-@put_page2:     EXPORT  put_page2
+@put_page2:
 		ld      (page2),a
 		out     (#fe),a         ; The "out (#fe),a", ret and "defs 3" will be overwritten with
 		ret                     ; "call translate_segment_to_dos2", "jp <DOSMAPPER_PUT_P2>"
@@ -407,7 +405,7 @@ mapper_routines:
 ; MODIFIES:
 ;       #None#
 ;
-@get_page0:     EXPORT  get_page0
+@get_page0:
 		ld      a,(page0)
 		ret
 ; FUNCTION:	get_page1
@@ -423,7 +421,7 @@ mapper_routines:
 ; MODIFIES:
 ;       #None#
 ;
-@get_page1:     EXPORT  get_page1
+@get_page1:
 		ld      a,(page1)
 		ret
 ; FUNCTION:	get_page2
@@ -439,7 +437,7 @@ mapper_routines:
 ; MODIFIES:
 ;       #None#
 ;
-@get_page2:     EXPORT  get_page2
+@get_page2:
 		ld      a,(page2)
 		ret
 ; FUNCTION:	get_page3
@@ -455,7 +453,7 @@ mapper_routines:
 ; MODIFIES:
 ;       #None#
 ;
-@get_page3:     EXPORT  get_page3
+@get_page3:
 		ld      a,(page3)
 		ret
 
@@ -490,7 +488,7 @@ mapper_routines_end:
 		IF ( mapper_routines_end - mapper_routines) > (MAPPER_WORKSPACE_SIZE)
 		ERROR "MEMSEGMENTS too high for the given MAPPER_WORKSPACE_BASE/SIZE!"
 		ENDIF
-		ENDT
+		DEPHASE
 ;               
 ;=================================================================================================
 ;
