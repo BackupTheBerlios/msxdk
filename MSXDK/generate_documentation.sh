@@ -126,6 +126,11 @@ if test ! -d doc; then
 	mkdir doc || exit 1
 fi
 
+if test ! -d NaturalDocs/ProjectMSDXK; then
+	echo "Creating MSXDK project directory in NaturalDocs"
+	mkdir NaturalDocs/ProjectMSXDK || exit 1
+fi
+
 perl NaturalDocs/NaturalDocs -i modules -o FramedHTML doc -p NaturalDocs/ProjectMSXDK -r
 
 exit 0
