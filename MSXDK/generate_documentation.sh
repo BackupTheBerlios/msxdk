@@ -21,7 +21,7 @@ if test ! -f NaturalDocs/NaturalDocs; then
 			HOST='heanet.dl.sourceforge.net'
 			USER='anonymous'
 			PASSWD='passwd'
-			REMOTEDIR='naturaldocs'
+			REMOTEDIR='pub/download.sourceforge.net/pub/sourceforge/n/project/na/naturaldocs/Stable Releases/1.16'
 			
 			echo "Trying to download $NDZIP now ..."			
 			if test $ISMINGW; then
@@ -30,7 +30,7 @@ if test ! -f NaturalDocs/NaturalDocs; then
 				quote USER $USER
 				quote PASS $PASSWD
 				binary
-				cd $REMOTEDIR
+				cd "$REMOTEDIR"
 				get $NDZIP
 				quit
 END_MINGWSCRIPT
@@ -39,7 +39,7 @@ END_MINGWSCRIPT
 				quote USER $USER
 				quote PASS $PASSWD
 				binary
-				cd $REMOTEDIR
+				cd "$REMOTEDIR"
 				get $NDZIP
 				quit
 END_SCRIPT
