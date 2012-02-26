@@ -1,0 +1,34 @@
+
+Image contains:
+/A.TXT
+/SUB/X.DAT
+
+PC contains:
+c:/haha/a.txt
+c:/haha/sub/x.dat
+
+Current directory is:
+c:/haha
+
+dodsk read 				/A.TXT -> a.txt, /SUB/X.DAT -> sub/x.dat
+dodsk read -d c:/haha			/A.TXT -> c:/haha/a.txt, /SUB(/X.DAT) -> c:/haha/sub(/x.dat)
+dodsk read a.txt			/A.TXT -> a.txt
+dodsk read c:/haha/a.txt		/A.TXT -> a.txt
+dodsk read c:/haha/sub/x.dat		FILE NOT FOUND: /X.DAT
+dodsk read sub				/SUB(/X.DAT) -> sub(/x.dat)
+dodsk read sub/x.dat			FILE NOT FOUND: /X.DAT
+dodsk read -c sub/x.dat 		/SUB/X.DAT -> sub/x.dat
+(-c = -d . )
+dodsk read -d c:/haha sub/x.dat   	/SUB/X.DAT -> c:/haha/sub/x.dat
+
+dodsk write				a.txt -> /A.TXT, sub/x.dat -> /SUB/X.DAT
+dodsk write -d c:/haha			c:/haha/a.txt -> /A.TXT, c:/haha/sub(/x.dat) -> /SUB(/X.DAT)
+dodsk write a.txt			a.txt -> /A.TXT
+dodsk write c:/haha/a.txt		c:/haha/a.txt -> /A.TXT
+dodsk write c:/haha/sub/x.dat		c:/haha/sub/x.dat -> /X.DAT
+dodsk write sub				sub(/x.dat) -> /SUB(/X.DAT)
+dodsk write sub/x.dat			sub/x.dat -> /X.DAT
+dodsk write -c sub/x.dat		sub/x.dat -> /SUB/X.DAT
+dodsk write -d c:/haha sub/x.dat   	c:/haha/sub/x.dat -> /SUB/X.DAT
+
+dodsk ... -i DirInImage
