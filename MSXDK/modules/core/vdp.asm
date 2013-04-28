@@ -90,7 +90,17 @@
 		ld	hl,$F3DF
 		ld	de,8 * 256 + 0
 		call	.restore_vdpregs_loop
-				
+		
+		call	get_romid
+		cp		ROMID_MSX2
+		jr		nc,.restore_msx2_screen
+		
+		; Return to screen 0
+		xor a
+		ROMCALL CHGMOD		
+		ret
+		
+.restore_msx2_screen		
 		; Restore VDP registers 8-23
 		ld	hl,$FFE7 
 		ld	de,16 * 256 + 8
@@ -166,6 +176,51 @@
 		out	($99),a
 		ld	a,$8e
 		out	($99),a
+		ld	a,l
+		out	($99),a
+		ld	a,h
+		and	$3f
+		out	($99),a
+		ret
+
+; FUNCTION:	set_vram_write16k
+;	Prepare the VDP for writing to the given VRAM address in
+;	a 16K VRAM environment. Useful when running in an MSX1
+;	screen mode.
+;
+; ENTRY:
+;	HL - Address (14bit, top 2 bits are ignored)
+;
+; EXIT:
+;	#None#
+;
+; MODIFIES:
+;	#AF#
+;
+@set_vram_write16k:
+		ld	a,l
+		out	($99),a
+		ld	a,h
+		and	$3f
+		or	$40
+		out	($99),a
+		ret
+
+; FUNCTION:	set_vram_read16k
+;	Prepare the VDP for reading from the given VRAM address in
+;	a 16K VRAM environment. Useful when running in an MSX1
+;	screen mode.
+;
+; ENTRY:
+;	HL - Address (14bit, top 2 bits are ignored)
+;
+; EXIT:
+;	#None#
+;
+; MODIFIES:
+;	#AF#
+;
+@set_vram_read16k:
 		ld	a,l
 		out	($99),a
 		ld	a,h
@@ -412,6 +467,19 @@
 ;	#AF, BC, HL, V0-V11, V17, V25#
 ;
 @set_screen_mode:
+		call	get_romid
+		cp		ROMID_MSX2
+		jr		nc,.set_screen_mode_msx2
+		ld		c, 0		
+.loop_msx1		
+		ld 		b, (hl)
+		call	write_vdpreg
+		inc		hl
+		inc		c
+		bit		3, c
+		jr		z,.loop_msx1
+		ret
+.set_screen_mode_msx2		
 		WRITEVDP        17,0                
 		ld      bc,12 * 256 + $9b
 		otir

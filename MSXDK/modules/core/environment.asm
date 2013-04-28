@@ -200,6 +200,7 @@
 		ld	a,(EXPTBL+0)
 		ld	hl, ROMID
 		call	RDSLT
+		ld	(romid_copy),a
 		cp	a, MINROMID
 		ld	de, error_needbettermachine
 		jr	c, .error
@@ -483,6 +484,22 @@ restoreslots_end:
 		exx				; Restore all returned registers
 		ret
 
+; FUNCTION:	get_romid
+; Get the ROM ID.
+;
+; ENTRY:
+;	#None#
+;
+; EXIT:
+;	A - ROMID (See msxdefs.asm for a list of possible values)
+;
+; MODIFIES:
+;	#A#
+;
+@get_romid:
+		ld a,(romid_copy)
+		ret
+
 ;		
 ;=================================================================================================
 ;
@@ -504,6 +521,7 @@ error_tpatoosmall:
 ;
 ;=================================================================================================
 ;
+romid_copy:			db 0
 error_string:			dw 0
 slots:				dw 0	; Offset 0: IN($A8); Offset 1: PEEK($FFFF) XOR $FF
 bdoshook:			db 0
